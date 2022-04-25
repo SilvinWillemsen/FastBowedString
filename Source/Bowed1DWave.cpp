@@ -98,7 +98,7 @@ void Bowed1DWave::paint (juce::Graphics& g)
     g.setColour(Colours::cyan);
     
     // draw the state
-    g.strokePath(visualiseState (g, 1000), PathStrokeType(2.0f));
+    g.strokePath(visualiseState (g, 500), PathStrokeType(2.0f));
     
 }
 
@@ -112,7 +112,7 @@ Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling)
     Path stringPath;
     
     // start path
-    stringPath.startNewSubPath (0, -x[0] * visualScaling + stringBoundaries);
+    stringPath.startNewSubPath (0, 0 * visualScaling + stringBoundaries);
     
     double spacing = getWidth() / static_cast<double>(N);
     double xLoc = spacing;
@@ -120,7 +120,7 @@ Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling)
     for (int l = 1; l <= N; l++) // if you don't save the boundaries use l < N
     {
         // Needs to be -u, because a positive u would visually go down
-        float newY = -x[l] * visualScaling + stringBoundaries;
+        float newY = -x[l+N-1] * visualScaling + stringBoundaries;
         
         // if we get NAN values, make sure that we don't get an exception
         if (isnan(newY))
