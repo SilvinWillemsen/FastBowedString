@@ -31,7 +31,7 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     a = 100;
     xB = 0.633 * L;
     vB = 0.2;
-    Fb = 1;
+    Fb = 5;
 
     outPos = 0.33 * L;
 
@@ -44,14 +44,22 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
 //    for (int i = 0; i < 2; ++i)
 //        x[i] = &xStates[i][0];
     
+    
+    
     using namespace Eigen;
     
-    xNext = SparseVector<double> (NN);
+    xNext = VectorXd (NN);
     xNext.setZero();
 
-    x = SparseVector<double> (NN);
+    x = VectorXd (NN);
     x.setZero();
-    
+        
+    xNextTest = VectorXd (NN);
+    xNextTest.setZero();
+
+    xTest = VectorXd (NN);
+    xTest.setZero();
+
     I = SparseMatrix<double> (NN, NN);
     I.setIdentity();
     J = SparseMatrix<double> (NN, NN);
@@ -69,22 +77,26 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     }
 
     using namespace Eigen;
-    Apre = SparseMatrix<double> (NN, NN);
-    Bpre = SparseMatrix<double> (NN, NN);
-
-    Apre = I / k - J / 2.0;
-    Bpre = I / k + J / 2.0;
-
+    
+    T = I / k - J / 2.0;
+    
+    Tinv = T.inverse().sparseView();
+    
+    Apre = I / k - J / 2;
+    Bpre = I / k + J / 2;
+    
     Amat = SparseMatrix<double> (NN, NN);
     Bmat = SparseMatrix<double> (NN, NN);
     Amat.setZero();
     Bmat.setZero();
+    
+
     zeta = SparseVector<double> (NN);
     zeta.setZero();
 #ifdef MODAL
     
 #else
-    zeta.coeffRef (N + (int)floor(xB * N / L)) = 1.0 / h;
+    zeta.coeffRef(N + (int)floor(xB * N / L)) = 1.0 / h;
 #endif
 
 }
@@ -102,15 +114,21 @@ void Bowed1DWave::paint (juce::Graphics& g)
     g.setColour(Colours::cyan);
     
     // draw the state
-    g.strokePath(visualiseState (g, 10000), PathStrokeType(2.0f));
+    g.strokePath(visualiseState (g, 50000, false), PathStrokeType(2.0f));
     
+    g.setColour(Colours::yellow);
+
+    // draw the state
+    g.strokePath(visualiseState (g, 50000, true), PathStrokeType(2.0f));
+
 }
 
 
-Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling)
+Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling, bool plotXTest)
 {
     // String-boundaries are in the vertical middle of the component
-    double stringBoundaries = getHeight() / 2.0;
+    double offset = getHeight() * 0.02;
+    double stringBoundaries = getHeight() / 2.0 + (plotXTest ? -offset : offset);
     
     // initialise path
     Path stringPath;
@@ -124,7 +142,7 @@ Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling)
     for (int l = 1; l < N; l++)
     {
         // Needs to be -x, because a positive x would visually go down
-        float newY = -x.coeff (l+N-1) * visualScaling + stringBoundaries;
+        float newY = -(plotXTest ? xTest.data()[l+N-1] : x.data()[l+N-1]) * visualScaling + stringBoundaries;
         
         // if we get NAN values, make sure that we don't get an exception
         if (isnan(newY))
@@ -150,30 +168,36 @@ void Bowed1DWave::calculate()
     
     zetaZetaT = zeta * zeta.transpose();
 #ifdef MODAL
-    
+
 #else
     double bowLoc = xB * N / L;// could be made user-controlled
 //    eta = h * 1.0 / h * Global::cubicInterpolation((double*)&x[1], floor(bowLoc), bowLoc - floor(bowLoc)) - vB;
-    eta = h * 1.0 / h * x.coeffRef(N + floor(bowLoc)) - vB;
+    eta = h * 1.0 / h * x.data()[N + (int)floor(bowLoc)] - vB;
+    etaTest = h * 1.0 / h * xTest.data()[N + (int)floor(bowLoc)] - vB;
 #endif
-    
+
     lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
     d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
-    
+    lambdaTest = sqrt(2.0*a) * (1.0 - 2.0 * a * etaTest * etaTest) * exp(-a * etaTest * etaTest + 0.5);
+    dTest = sqrt(2.0 * a) * exp(-a * etaTest * etaTest + 0.5);
+
 #ifdef MODAL
 #else
-    
-    Amat = Apre + (Fb * h * 0.5 * lambda * zetaZetaT);
     Bmat = Bpre + (Fb * h * (0.5 * lambda - d) * zetaZetaT);
+
+    TinvZeta = Tinv * zeta;
     
+    double invDiv = 1.0 + Fb * h * lambda * 0.5 * (zeta.transpose() * TinvZeta).value();
+    Ainv = Tinv - (Fb * h * lambda * 0.5 * ((TinvZeta * zeta.transpose()) * Tinv)) / invDiv;
+    xNext = Ainv * (Bmat * x + Fb * zeta * d * vB);
+    
+    
+
     using namespace Eigen;
-//    PartialPivLU<MatrixXd> dec(Amat);
-//    VectorXd b = Bmat * x + Fb * zeta * d * vB;
-//    xNext = dec.solve (b);
-
     SparseLU<SparseMatrix<double>, COLAMDOrdering<int>> solver;
-
-    b = Bmat * x + Fb * zeta * d * vB;
+    
+    Amat = Apre + (Fb * h * 0.5 * lambdaTest * zetaZetaT);
+    b = Bmat * xTest + Fb * zeta * dTest * vB;
     
     // Make sure the matrix is compressed (see SparseLU documentation)
     Amat.makeCompressed();
@@ -185,10 +209,11 @@ void Bowed1DWave::calculate()
     solver.factorize(Amat);
 
     //Use the factors to solve the linear system
-    xNext = solver.solve(b);
+    xNextTest = solver.solve(b);
     
-    int idx = N + floor(bowLoc);
-//    std::cout << xNext.coeff (idx) << std::endl;
+    diffsum = (xNext - xNextTest).sum();
+//    int idx = N + floor(bowLoc);
+//    std::cout << xNextTest.coeff (idx) << std::endl;
 //    for (int i = N; i < xNext.size(); ++i)
 //        std::cout << i << " = " <<  xNext.coeff (i) << std::endl;
 //    std::cout << std::endl;
@@ -204,4 +229,5 @@ void Bowed1DWave::updateStates()
 //    x[0] = xTmp;
     
     x = xNext;
+    xTest = xNextTest;
 }

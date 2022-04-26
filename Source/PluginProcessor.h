@@ -57,7 +57,10 @@ public:
 
     std::shared_ptr<Bowed1DWave> getBowed1DWavePtr() { return bowed1DWave; };
     
-    unsigned long getCurSample() { return curSample; };
+    String getDebugString() {
+//        return String(curSample);
+        return "Cursample: " + String(curSample) + " Diffsum: " + String(bowed1DWave->getDiffSum());
+    };
 private:
     //==============================================================================
     double fs;

@@ -54,12 +54,12 @@ void FastBowedStringAudioProcessorEditor::resized()
     if (bowed1DWave != nullptr)
         bowed1DWave->setBounds(getLocalBounds());
     
-    dbgLabel->setBounds (0, getHeight() - 50, 100, 50);
+    dbgLabel->setBounds (0, getHeight() - 50, getWidth(), 50);
 }
 
 void FastBowedStringAudioProcessorEditor::timerCallback()
 {
     // this function gets called from the JUCE backend at the rate specified by the startTimerHz (see constructor of this class)
-    dbgLabel->setText (String (audioProcessor.getCurSample()), dontSendNotification);
+    dbgLabel->setText (String (audioProcessor.getDebugString()), dontSendNotification);
     repaint();
 }
