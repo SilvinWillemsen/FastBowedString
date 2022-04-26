@@ -32,7 +32,7 @@ public:
     void calculate();
     void updateStates();
     
-    float getOutput (float outRatio) { return x[(int)floor(outRatio * N)];
+    float getOutput (float outRatio) { return x.coeffRef ((int)floor(outRatio * N));
 //    [(int)floor(outRatio * N)];
         
     };
@@ -53,7 +53,7 @@ private:
     double vB;  // Bowing velocity (in m/s)
     double Fb;  // Bowing force (in m^2/s^2) (?)
     double eta; // relative velocity between the string and bow (in m/s)
-    Eigen::VectorXd zeta;
+    Eigen::SparseVector<double> zeta, b;
     
     double lambda, d; // noniterative factors
     double outPos; // output location (as a ratio of the length)
@@ -61,7 +61,8 @@ private:
 //    std::vector<std::vector<double>> xStates; // container saving the states of the system
 //    std::vector<double*> x; // pointers to the state vectors
     
-    Eigen::VectorXd xNext, x;
-    Eigen::MatrixXd I, J, Apre, Bpre, Amat, Bmat, zetaZetaT;
+    Eigen::SparseVector<double> xNext, x;
+    Eigen::SparseMatrix<double> I, J, Apre, Bpre, Bmat, zetaZetaT;
+    Eigen::SparseMatrix<double> Amat;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Bowed1DWave)
 };
