@@ -43,6 +43,7 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
 //    // initialise pointers to state vectors
 //    for (int i = 0; i < 2; ++i)
 //        x[i] = &xStates[i][0];
+    
     using namespace Eigen;
     
     xNext = SparseVector<double> (NN);
@@ -66,7 +67,7 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
         J.coeffRef(N+i, i+1) += c / h;
 
     }
-    std::cout << J << std::endl;
+
     using namespace Eigen;
     Apre = SparseMatrix<double> (NN, NN);
     Bpre = SparseMatrix<double> (NN, NN);
@@ -101,7 +102,7 @@ void Bowed1DWave::paint (juce::Graphics& g)
     g.setColour(Colours::cyan);
     
     // draw the state
-    g.strokePath(visualiseState (g, 100000), PathStrokeType(2.0f));
+    g.strokePath(visualiseState (g, 10000), PathStrokeType(2.0f));
     
 }
 
@@ -123,7 +124,7 @@ Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling)
     for (int l = 1; l < N; l++)
     {
         // Needs to be -x, because a positive x would visually go down
-        float newY = -x.coeffRef (l+N-1) * visualScaling + stringBoundaries;
+        float newY = -x.coeff (l+N-1) * visualScaling + stringBoundaries;
         
         // if we get NAN values, make sure that we don't get an exception
         if (isnan(newY))
