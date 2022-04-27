@@ -35,17 +35,18 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
 
     outPos = 0.33 * L;
 
-//    xStates.resize (2);
-//    x.resize (2);
-//    // initialise states container with two vectors of 0s
-//    xStates = std::vector<std::vector<double>> (2,
-//                                               std::vector<double> (NN, 0));
-//    // initialise pointers to state vectors
-//    for (int i = 0; i < 2; ++i)
-//        x[i] = &xStates[i][0];
+    // Initialise xVectors
+    xStates.resize (2);
+    xVec.resize (2);
+    // initialise states container with two vectors of 0s
+    xStates = std::vector<std::vector<double>> (2,
+                                               std::vector<double> (NN, 0));
+    // initialise pointers to state vectors
+    for (int i = 0; i < 2; ++i)
+        xVec[i] = &xStates[i][0];
     
     
-    
+    // Initialise x for optimised algorithm
     using namespace Eigen;
     
     xNext = VectorXd (NN);
@@ -53,17 +54,19 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
 
     x = VectorXd (NN);
     x.setZero();
-        
-    xNextTest = VectorXd (NN);
-    xNextTest.setZero();
+      
+    // Initialise x for reference algorithm
+    xNextRef = VectorXd (NN);
+    xNextRef.setZero();
 
-    xTest = VectorXd (NN);
-    xTest.setZero();
+    xRef = VectorXd (NN);
+    xRef.setZero();
 
     I = SparseMatrix<double> (NN, NN);
     I.setIdentity();
     J = SparseMatrix<double> (NN, NN);
     J.setZero();
+    
     for (int i = 0; i < N-1; ++i)
     {
         // top right quadrant
@@ -82,6 +85,8 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     
     Tinv = T.inverse().sparseView();
     
+    Tinv.prune (1e-8); // test the prune value and whether it makes it faster..
+    std::cout << Tinv << std::endl;
     Apre = I / k - J / 2;
     Bpre = I / k + J / 2;
     
@@ -89,15 +94,30 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     Bmat = SparseMatrix<double> (NN, NN);
     Amat.setZero();
     Bmat.setZero();
-    
 
     zeta = SparseVector<double> (NN);
     zeta.setZero();
+    
+    bx = SparseVector<double> (NN);
+    bx.setZero();
+
+    bxVec = std::vector<double> (NN, 0);
+    zetaVec = std::vector<double> (NN, 0);
 #ifdef MODAL
     
 #else
     zeta.coeffRef(N + (int)floor(xB * N / L)) = 1.0 / h;
+    zetaVec[N + (int)floor(xB * N / L)]= 1.0 / h;
 #endif
+    
+    BpreVec = std::vector<std::vector<double>> (NN,
+                                               std::vector<double> (NN, 0));
+    BmatVec = std::vector<std::vector<double>> (NN,
+                                               std::vector<double> (NN, 0));
+    
+    for (int i = 0; i < NN; ++i)
+        for (int j = 0; j < NN; ++j)
+            BpreVec[i][j] = Bpre.coeff(i, j);
 
 }
 
@@ -110,25 +130,26 @@ void Bowed1DWave::paint (juce::Graphics& g)
     // clear the background
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
     
-    // choose your favourite colour
-    g.setColour(Colours::cyan);
+    // draw the state of the optimised algorithm
+    g.setColour (Colours::cyan);
+    g.strokePath (visualiseState (g, 50000, &x.coeffRef (0), -0.2 * getHeight()), PathStrokeType(2.0f));
     
-    // draw the state
-    g.strokePath(visualiseState (g, 50000, false), PathStrokeType(2.0f));
-    
-    g.setColour(Colours::yellow);
+    // draw the state of the vector
+    g.setColour (Colours::yellow);
+    g.strokePath (visualiseState (g, 50000, xVec[1], 0.2 * getHeight()), PathStrokeType(2.0f));
 
-    // draw the state
-    g.strokePath(visualiseState (g, 50000, true), PathStrokeType(2.0f));
+    // draw the state of the reference
+    g.setColour (Colours::green);
+    g.strokePath (visualiseState (g, 50000, &xRef.coeffRef (0), 0.2 * getHeight()), PathStrokeType(2.0f));
 
 }
 
 
-Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling, bool plotXTest)
+Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling, double* x, double offset)
 {
     // String-boundaries are in the vertical middle of the component
-    double offset = getHeight() * 0.02;
-    double stringBoundaries = getHeight() / 2.0 + (plotXTest ? -offset : offset);
+//    double offset = getHeight() * 0.02;
+    double stringBoundaries = getHeight() / 2.0 + offset;
     
     // initialise path
     Path stringPath;
@@ -142,7 +163,7 @@ Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling, bool plotXT
     for (int l = 1; l < N; l++)
     {
         // Needs to be -x, because a positive x would visually go down
-        float newY = -(plotXTest ? xTest.data()[l+N-1] : x.data()[l+N-1]) * visualScaling + stringBoundaries;
+        float newY = -x[l+N-1] * visualScaling + stringBoundaries;
         
         // if we get NAN values, make sure that we don't get an exception
         if (isnan(newY))
@@ -151,6 +172,7 @@ Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling, bool plotXT
         stringPath.lineTo (xLoc, newY);
         xLoc += spacing;
     }
+    
     stringPath.lineTo (xLoc, stringBoundaries);
     return stringPath;
 }
@@ -163,71 +185,161 @@ void Bowed1DWave::resized()
 
 }
 
-void Bowed1DWave::calculate()
+void Bowed1DWave::calculateFirstOrder()
 {
+    for (int i = 0; i < NN; ++i)
+    {
+        if (zeta.coeff(i) != 0)
+        {
+            zetaFlag = true;
+            zetaStartIdx = i;
+        }
+        if (zetaFlag && zeta.coeff(i) == 0)
+        {
+            zetaFlag = false;
+            zetaEndIdx = i;
+        }
+    }
     
     zetaZetaT = zeta * zeta.transpose();
-#ifdef MODAL
+    
+    double now = Time::getMillisecondCounterHiRes();
+    calculateFirstOrderOpt(); // optimised
+    std::cout << "Optimized matrix computations: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
+    
+    now = Time::getMillisecondCounterHiRes();
+    calculateFirstOrderOptVec(); // optimised with vector
+    std::cout << "Optimized vector: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
+    
+    now = Time::getMillisecondCounterHiRes();
+    calculateFirstOrderRef(); // reference
+    std::cout << "Reference matrix: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
 
-#else
-    double bowLoc = xB * N / L;// could be made user-controlled
+    diffsum = 0;
+    for (int i = 0; i < NN; ++i)
+        diffsum += (xVec[1][i] - xNextRef.coeff (i)); // using xVec[1] because the pointer switch has been done already
+    
+}
+
+void Bowed1DWave::calculateFirstOrderOptVec()
+{
+    double bowLoc = xB * N / L; // xB can be made user-controlled
+//    eta = h * 1.0 / h * Global::cubicInterpolation((double*)&x[1], floor(bowLoc), bowLoc - floor(bowLoc)) - vB;
+    eta = h * 1.0 / h * xVec[1][N + (int)floor(bowLoc)] - vB;
+    
+    // Non-iterative coefficients
+    lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
+    d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
+
+    // T^{-1}z
+    TinvZeta = Tinv * zeta;
+    
+    // Sherman-Morrison
+    double invDiv = 1.0 + Fb * h * lambda * 0.5 * (zeta.transpose() * TinvZeta).value();
+    Ainv = Tinv - (Fb * h * lambda * 0.5 * (TinvZeta * zeta.transpose() * Tinv)) / invDiv;
+    
+    // B matrix
+    BmatVec = BpreVec;
+//    for (int i = 0; i < NN; ++i)
+//        for (int j = 0; j < NN; ++j)
+    for (int i = zetaStartIdx; i < zetaEndIdx; ++i)
+        for (int j = zetaStartIdx; j < zetaEndIdx; ++j)
+            BmatVec[i][j] += (Fb * h * (0.5 * lambda - d) * zetaZetaT.coeff(i, j));
+    
+    // Calculate x^{n+1}
+    for (int i = 0; i < NN; ++i)
+    {
+        bxVec[i] = 0;
+        for (int j = 0; j < NN; ++j)
+            bxVec[i] += (BmatVec[i][j] * xVec[1][j]);
+    }
+    for (int i = zetaStartIdx; i < zetaEndIdx; ++i)
+        bxVec[i] += Fb * zeta.coeff(i) * d * vB;
+    
+    for (int i = 0; i < NN; ++i)
+    {
+        xVec[0][i] = 0;
+        for (int j = 0; j < NN; ++j)
+            xVec[0][i] += Ainv.coeff(i, j) * bxVec[j];
+    }
+    
+    // Update states here
+    double* xTmp = xVec[1];
+    xVec[1] = xVec[0];
+    xVec[0] = xTmp;
+    
+}
+
+void Bowed1DWave::calculateFirstOrderOpt()
+{
+    double bowLoc = xB * N / L; // xB can be made user-controlled
 //    eta = h * 1.0 / h * Global::cubicInterpolation((double*)&x[1], floor(bowLoc), bowLoc - floor(bowLoc)) - vB;
     eta = h * 1.0 / h * x.data()[N + (int)floor(bowLoc)] - vB;
-    etaTest = h * 1.0 / h * xTest.data()[N + (int)floor(bowLoc)] - vB;
-#endif
+    
+    // Non-iterative coefficients
+    lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
+    d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
+
+    // T^{-1}z
+    TinvZeta = Tinv * zeta;
+    
+    // Sherman-Morrison
+    double invDiv = 1.0 + Fb * h * lambda * 0.5 * (zeta.transpose() * TinvZeta).value();
+    Ainv = Tinv - (Fb * h * lambda * 0.5 * (TinvZeta * zeta.transpose() * Tinv)) / invDiv;
+    
+    // B matrix
+    Bmat = Bpre + (Fb * h * (0.5 * lambda - d) * zetaZetaT);
+    
+    // Calculate x^{n+1}
+    xNext = Ainv * (Bmat * x + Fb * zeta * d * vB);
+
+    // Update states here
+    x = xNext;
+    
+}
+
+void Bowed1DWave::calculateFirstOrderRef()
+{
+    
+    double bowLoc = xB * N / L; // xB can be made user-controlled
+    eta = h * 1.0 / h * xRef.data()[N + (int)floor(bowLoc)] - vB;
 
     lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
     d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
-    lambdaTest = sqrt(2.0*a) * (1.0 - 2.0 * a * etaTest * etaTest) * exp(-a * etaTest * etaTest + 0.5);
-    dTest = sqrt(2.0 * a) * exp(-a * etaTest * etaTest + 0.5);
 
-#ifdef MODAL
-#else
     Bmat = Bpre + (Fb * h * (0.5 * lambda - d) * zetaZetaT);
-
-    TinvZeta = Tinv * zeta;
     
-    double invDiv = 1.0 + Fb * h * lambda * 0.5 * (zeta.transpose() * TinvZeta).value();
-    Ainv = Tinv - (Fb * h * lambda * 0.5 * ((TinvZeta * zeta.transpose()) * Tinv)) / invDiv;
-    xNext = Ainv * (Bmat * x + Fb * zeta * d * vB);
-    
-    
-
+    /// Linear system solve ///
     using namespace Eigen;
     SparseLU<SparseMatrix<double>, COLAMDOrdering<int>> solver;
-    
-    Amat = Apre + (Fb * h * 0.5 * lambdaTest * zetaZetaT);
-    b = Bmat * xTest + Fb * zeta * dTest * vB;
-    
-    // Make sure the matrix is compressed (see SparseLU documentation)
-    Amat.makeCompressed();
-    
-    // Compute the ordering permutation vector from the structural pattern of A
-    solver.analyzePattern(Amat);
-    
-    // Compute the numerical factorization
-    solver.factorize(Amat);
 
-    //Use the factors to solve the linear system
-    xNextTest = solver.solve(b);
+    // Matrix to invert
+    Amat = Apre + (Fb * h * 0.5 * lambda * zetaZetaT);
     
-    diffsum = (xNext - xNextTest).sum();
-//    int idx = N + floor(bowLoc);
-//    std::cout << xNextTest.coeff (idx) << std::endl;
-//    for (int i = N; i < xNext.size(); ++i)
-//        std::cout << i << " = " <<  xNext.coeff (i) << std::endl;
-//    std::cout << std::endl;
-#endif
+    // Right hand side
+    b = Bmat * xRef + Fb * zeta * d * vB;
+
+    // For the below, see SparseLU documentation on eigen.com
+    Amat.makeCompressed();
+    solver.analyzePattern(Amat);
+    solver.factorize(Amat);
     
+    // Solve the system for x^{n+1}
+    xNextRef = solver.solve(b);
+       
+    // Update states here
+    xRef = xNextRef;
 }
 
 void Bowed1DWave::updateStates()
 {
+    // For comparison between the various implementations this function is unused now..
+    
     // pointer switch (much faster than copying the states in MATLAB);
 //    double* xTmp = x[1];
 //    x[1] = x[0];
 //    x[0] = xTmp;
     
-    x = xNext;
-    xTest = xNextTest;
+//    x = xNext;
+//    xRef = xNextRef;
 }

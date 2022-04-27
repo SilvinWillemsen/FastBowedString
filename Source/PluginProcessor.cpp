@@ -162,7 +162,7 @@ void FastBowedStringAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     {
 //        for (int o = 0; o < oversamplingFac; ++o)
 //        {
-            bowed1DWave->calculate();
+            bowed1DWave->calculateFirstOrder();
             bowed1DWave->updateStates();
 //        }
         output = bowed1DWave->getOutput (0.8); // get output at 0.8L of the string

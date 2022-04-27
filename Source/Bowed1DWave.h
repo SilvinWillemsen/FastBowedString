@@ -27,9 +27,9 @@ public:
     void resized() override;
 
     // function to draw the state of the string
-    Path visualiseState (Graphics& g, double visualScaling, bool plotXTest);
+    Path visualiseState (Graphics& g, double visualScaling, double* x, double offset);
 
-    void calculate();
+    void calculateFirstOrder();
     void updateStates();
     
     float getOutput (float outRatio) { return x.data()[N + (int)floor(outRatio * N)]; };
@@ -37,6 +37,11 @@ public:
     double getDiffSum() { return diffsum; };
 private:
     
+    // These functions are private such that they can only be called from member functions of this class (in this case, the public "calculateFirstOrder()" function)
+    void calculateFirstOrderOptVec(); // Optimised first order system calculation with vectors
+    void calculateFirstOrderOpt(); // Optimised first order system calculation
+    void calculateFirstOrderRef(); // Reference first order system calculation
+
     // Time step
     double k;
     // Scheme parameters
@@ -50,19 +55,28 @@ private:
     double xB;  // Bowing location (as a ratio of the length) (can be made mouse-controlled)
     double vB;  // Bowing velocity (in m/s)
     double Fb;  // Bowing force (in m^2/s^2) (?)
-    double eta, etaTest; // relative velocity between the string and bow (in m/s)
+    double eta; // relative velocity between the string and bow (in m/s)
     
-    double lambda, d, lambdaTest, dTest; // noniterative factors
+    double lambda, d; // noniterative factors
     double outPos; // output location (as a ratio of the length)
     
 //    std::vector<std::vector<double>> xStates; // container saving the states of the system
 //    std::vector<double*> x; // pointers to the state vectors
-    Eigen::VectorXd xNext, x, xNextTest, xTest;
+    Eigen::VectorXd xNext, x, xNextRef, xRef, xPaint, xRefPaint;
     
     Eigen::MatrixXd T;
     Eigen::SparseMatrix<double> I, J, Tinv, Ainv, Amat, Bmat, Apre, Bpre, zetaZetaT;
-    Eigen::VectorXd zetaTinv, TinvZeta, b;
+    Eigen::VectorXd zetaTinv, TinvZeta, b, bx;
     Eigen::SparseVector<double> zeta;
+    
+    std::mutex testMutex;
+    
+    std::vector<std::vector<double>> xStates;
+    std::vector<double*> xVec;
+    std::vector<std::vector<double>> BpreVec, BmatVec;
+    std::vector<double> bxVec, zetaVec;
+    int zetaStartIdx, zetaEndIdx;
+    bool zetaFlag;
     
     double diffsum; // sum of the difference between the normal and the test vector
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Bowed1DWave)
