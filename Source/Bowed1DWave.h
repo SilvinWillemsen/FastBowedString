@@ -32,7 +32,7 @@ public:
     void calculateFirstOrder();
     void updateStates();
     
-    float getOutput (float outRatio) { return x.data()[N + (int)floor(outRatio * N)]; };
+    float getOutput (float outRatio) { return xRef.data()[N + (int)floor(outRatio * N)]; };
     
     double getDiffSum() { return diffsum; };
 private:
@@ -42,6 +42,7 @@ private:
     void calculateFirstOrderOpt(); // Optimised first order system calculation
     void calculateFirstOrderRef(); // Reference first order system calculation
 
+    void recalculateZeta(); // recalculate the zeta vector
     // Time step
     double k;
     // Scheme parameters
@@ -62,21 +63,24 @@ private:
     
 //    std::vector<std::vector<double>> xStates; // container saving the states of the system
 //    std::vector<double*> x; // pointers to the state vectors
+    
+    
     Eigen::VectorXd xNext, x, xNextRef, xRef, xPaint, xRefPaint;
     
     Eigen::MatrixXd T;
-    Eigen::SparseMatrix<double> I, J, Tinv, Ainv, Amat, Bmat, Apre, Bpre, zetaZetaT;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> I, J, Tinv, zetaZetaT, TzT;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> Amat, Bmat, Apre, Bpre, Ainv;
     Eigen::VectorXd zetaTinv, TinvZeta, b, bx;
     Eigen::SparseVector<double> zeta;
     
-    std::mutex testMutex;
-    
+    // vector stuff
     std::vector<std::vector<double>> xStates;
     std::vector<double*> xVec;
-    std::vector<std::vector<double>> BpreVec, BmatVec;
-    std::vector<double> bxVec, zetaVec;
+    std::vector<std::vector<double>> BpreVec, BmatVec, zetaZetaTVec, TinvVec, TzTVec, AinvVec;
+    std::vector<double> bxVec, zetaVec, TinvZetaVec;
     int zetaStartIdx, zetaEndIdx;
     bool zetaFlag;
+    double zTz;
     
     double diffsum; // sum of the difference between the normal and the test vector
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (Bowed1DWave)

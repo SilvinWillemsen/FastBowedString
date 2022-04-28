@@ -62,9 +62,9 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     xRef = VectorXd (NN);
     xRef.setZero();
 
-    I = SparseMatrix<double> (NN, NN);
+    I = SparseMatrix<double, RowMajor> (NN, NN);
     I.setIdentity();
-    J = SparseMatrix<double> (NN, NN);
+    J = SparseMatrix<double, RowMajor> (NN, NN);
     J.setZero();
     
     for (int i = 0; i < N-1; ++i)
@@ -86,12 +86,22 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     Tinv = T.inverse().sparseView();
     
     Tinv.prune (1e-8); // test the prune value and whether it makes it faster..
-    std::cout << Tinv << std::endl;
+    
+    TzT = SparseMatrix<double> (NN, NN);
+
+    // Vector forms
+    TinvVec = std::vector<std::vector<double>> (NN,
+                                               std::vector<double> (NN, 0));
+    for (int i = 0; i < NN; ++i)
+        for (int j = 0; j < NN; ++j)
+            TinvVec[i][j] = Tinv.coeff(i, j);
+    TinvZetaVec = std::vector<double> (NN, 0);
+    
     Apre = I / k - J / 2;
     Bpre = I / k + J / 2;
     
-    Amat = SparseMatrix<double> (NN, NN);
-    Bmat = SparseMatrix<double> (NN, NN);
+    Amat = SparseMatrix<double, RowMajor> (NN, NN);
+    Bmat = SparseMatrix<double, RowMajor> (NN, NN);
     Amat.setZero();
     Bmat.setZero();
 
@@ -103,11 +113,18 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
 
     bxVec = std::vector<double> (NN, 0);
     zetaVec = std::vector<double> (NN, 0);
+    
+    TzTVec  = std::vector<std::vector<double>> (NN,
+                                                std::vector<double> (NN, 0));
+    AinvVec  = std::vector<std::vector<double>> (NN,
+                                                std::vector<double> (NN, 0));
+
 #ifdef MODAL
     
 #else
     zeta.coeffRef(N + (int)floor(xB * N / L)) = 1.0 / h;
     zetaVec[N + (int)floor(xB * N / L)]= 1.0 / h;
+    recalculateZeta(); // if done in the loop this can be excluded here
 #endif
     
     BpreVec = std::vector<std::vector<double>> (NN,
@@ -185,16 +202,16 @@ void Bowed1DWave::resized()
 
 }
 
-void Bowed1DWave::calculateFirstOrder()
+void Bowed1DWave::recalculateZeta()
 {
     for (int i = 0; i < NN; ++i)
     {
-        if (zeta.coeff(i) != 0)
+        if (zetaVec[i] != 0)
         {
             zetaFlag = true;
             zetaStartIdx = i;
         }
-        if (zetaFlag && zeta.coeff(i) == 0)
+        if (zetaFlag && zetaVec[i] == 0)
         {
             zetaFlag = false;
             zetaEndIdx = i;
@@ -203,21 +220,56 @@ void Bowed1DWave::calculateFirstOrder()
     
     zetaZetaT = zeta * zeta.transpose();
     
-    double now = Time::getMillisecondCounterHiRes();
-    calculateFirstOrderOpt(); // optimised
-    std::cout << "Optimized matrix computations: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
+    zetaZetaTVec = std::vector<std::vector<double>> (NN, std::vector<double> (NN, 0));
+    for (int i = 0; i < NN; ++i)
+        for (int j = 0; j < NN; ++j)
+            zetaZetaTVec[i][j] = zetaZetaT.coeff (i, j);
     
+    // T^{-1}z
+    for (int i = 0; i < NN; ++i)
+    {
+        TinvZetaVec[i] = 0;
+        for (int j = 0; j < NN; ++j)
+            TinvZetaVec[i] += TinvVec[i][j] * zetaVec[j];
+    }
+    
+    // Sherman-Morrison
+    zTz = 0;
+    for (int i = 0; i < NN; ++i)
+        zTz += zetaVec[i] * TinvZetaVec[i];
+    
+    // T^{-1}z
+    TinvZeta = Tinv * zeta;
+    
+    TzT = (TinvZeta * zeta.transpose() * Tinv);
+    for (int i = 0; i < NN; ++i)
+        for (int j = 0; j < NN; ++j)
+            TzTVec[i][j] = TzT.coeff (i, j);
+
+}
+
+
+void Bowed1DWave::calculateFirstOrder()
+{
+//    recalculateZeta();
+    
+    double now = Time::getMillisecondCounterHiRes();
+    calculateFirstOrderRef(); // reference
+    std::cout << "1: Reference matrix: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
+
+    now = Time::getMillisecondCounterHiRes();
+    calculateFirstOrderOpt(); // optimised
+    std::cout << "2: Optimized matrix: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
+        
     now = Time::getMillisecondCounterHiRes();
     calculateFirstOrderOptVec(); // optimised with vector
-    std::cout << "Optimized vector: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
-    
-    now = Time::getMillisecondCounterHiRes();
-    calculateFirstOrderRef(); // reference
-    std::cout << "Reference matrix: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
+    std::cout << "3: Optimized vector: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
+
 
     diffsum = 0;
+    // using xVec[1] here for the vector version because the pointer switch has been done already
     for (int i = 0; i < NN; ++i)
-        diffsum += (xVec[1][i] - xNextRef.coeff (i)); // using xVec[1] because the pointer switch has been done already
+        diffsum += (xNext.coeff(i) - xNextRef.coeff (i));
     
 }
 
@@ -225,18 +277,17 @@ void Bowed1DWave::calculateFirstOrderOptVec()
 {
     double bowLoc = xB * N / L; // xB can be made user-controlled
 //    eta = h * 1.0 / h * Global::cubicInterpolation((double*)&x[1], floor(bowLoc), bowLoc - floor(bowLoc)) - vB;
-    eta = h * 1.0 / h * xVec[1][N + (int)floor(bowLoc)] - vB;
+    eta = h * 1.0 / h * xVec[1][N + (int)floor(bowLoc)] - vB; // should include zeta here as well
     
     // Non-iterative coefficients
     lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
     d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
-
-    // T^{-1}z
-    TinvZeta = Tinv * zeta;
     
-    // Sherman-Morrison
-    double invDiv = 1.0 + Fb * h * lambda * 0.5 * (zeta.transpose() * TinvZeta).value();
-    Ainv = Tinv - (Fb * h * lambda * 0.5 * (TinvZeta * zeta.transpose() * Tinv)) / invDiv;
+    double invDiv = 1.0 + Fb * h * lambda * 0.5 * zTz;
+    double divTerm = (Fb * h * lambda * 0.5) / invDiv;
+    for (int i = 0; i < NN; ++i)
+        for (int j = 0; j < NN; ++j)
+            AinvVec[i][j] = TinvVec[i][j] - TzTVec[i][j] * divTerm;
     
     // B matrix
     BmatVec = BpreVec;
@@ -244,7 +295,7 @@ void Bowed1DWave::calculateFirstOrderOptVec()
 //        for (int j = 0; j < NN; ++j)
     for (int i = zetaStartIdx; i < zetaEndIdx; ++i)
         for (int j = zetaStartIdx; j < zetaEndIdx; ++j)
-            BmatVec[i][j] += (Fb * h * (0.5 * lambda - d) * zetaZetaT.coeff(i, j));
+            BmatVec[i][j] += Fb * h * (0.5 * lambda - d) * zetaZetaTVec[i][j];
     
     // Calculate x^{n+1}
     for (int i = 0; i < NN; ++i)
@@ -254,13 +305,13 @@ void Bowed1DWave::calculateFirstOrderOptVec()
             bxVec[i] += (BmatVec[i][j] * xVec[1][j]);
     }
     for (int i = zetaStartIdx; i < zetaEndIdx; ++i)
-        bxVec[i] += Fb * zeta.coeff(i) * d * vB;
+        bxVec[i] += Fb * zetaVec[i] * d * vB;
     
     for (int i = 0; i < NN; ++i)
     {
         xVec[0][i] = 0;
         for (int j = 0; j < NN; ++j)
-            xVec[0][i] += Ainv.coeff(i, j) * bxVec[j];
+            xVec[0][i] += AinvVec[i][j] * bxVec[j];
     }
     
     // Update states here
@@ -280,12 +331,11 @@ void Bowed1DWave::calculateFirstOrderOpt()
     lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
     d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
 
-    // T^{-1}z
-    TinvZeta = Tinv * zeta;
-    
     // Sherman-Morrison
-    double invDiv = 1.0 + Fb * h * lambda * 0.5 * (zeta.transpose() * TinvZeta).value();
-    Ainv = Tinv - (Fb * h * lambda * 0.5 * (TinvZeta * zeta.transpose() * Tinv)) / invDiv;
+    double invDiv = 1.0 + Fb * h * lambda * 0.5 * zTz;
+    double divTerm = (Fb * h * lambda * 0.5) / invDiv;
+
+    Ainv = Tinv - TzT * divTerm;
     
     // B matrix
     Bmat = Bpre + (Fb * h * (0.5 * lambda - d) * zetaZetaT);

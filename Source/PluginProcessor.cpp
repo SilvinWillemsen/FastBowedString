@@ -166,6 +166,7 @@ void FastBowedStringAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
             bowed1DWave->updateStates();
 //        }
         output = bowed1DWave->getOutput (0.8); // get output at 0.8L of the string
+//        DBG(output);
         for (int channel = 0; channel < totalNumOutputChannels; ++channel)
             curChannel[channel][0][i] = Global::limitOutput (output);
         
