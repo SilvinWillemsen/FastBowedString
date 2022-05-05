@@ -194,9 +194,9 @@ void FastBowedStringAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     // Calculate average time per sample for the optimised vector form
     avgTimeOptVec = cumulativeTimePerBufferOptVec / (curBuffer * buffer.getNumSamples());
 
-    std::cout << "1: Reference matrix: " << avgTimeRef << std::endl;
-    std::cout << "2: Optimized matrix: " << avgTimeOpt << std::endl;
-    std::cout << "3: Optimized vector: " << avgTimeOptVec << std::endl;
+    Logger::getCurrentLogger()->outputDebugString("1: Reference matrix: " + String(avgTimeRef));
+    Logger::getCurrentLogger()->outputDebugString("2: Optimized matrix: " + String(avgTimeOpt));
+    Logger::getCurrentLogger()->outputDebugString("3: Optimized vector: " + String(avgTimeOptVec));
 #else
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
