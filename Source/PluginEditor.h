@@ -11,7 +11,7 @@
 #include <JuceHeader.h>
 #include "Global.h"
 #include "PluginProcessor.h"
-#include "Bowed1DWave.h"
+#include "Bowed1DWaveFirstOrder.h"
 //==============================================================================
 /**
 */
@@ -31,7 +31,7 @@ private:
     // access the processor object that created it.
     FastBowedStringAudioProcessor& audioProcessor;
     
-    std::shared_ptr<Bowed1DWave> bowed1DWave;
+    std::shared_ptr<Bowed1DWaveFirstOrder> bowed1DWaveFirstOrder;
     std::unique_ptr<Label> dbgLabel;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FastBowedStringAudioProcessorEditor)
 };

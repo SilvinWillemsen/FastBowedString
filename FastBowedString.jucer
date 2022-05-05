@@ -5,8 +5,10 @@
   <MAINGROUP id="CrcufO" name="FastBowedString">
     <GROUP id="{086D6846-2393-59F9-19CE-E37554B44FCE}" name="Source">
       <FILE id="MYacdT" name="Global.h" compile="0" resource="0" file="Source/Global.h"/>
-      <FILE id="pMTb70" name="Bowed1DWave.cpp" compile="1" resource="0" file="Source/Bowed1DWave.cpp"/>
-      <FILE id="mJgMpp" name="Bowed1DWave.h" compile="0" resource="0" file="Source/Bowed1DWave.h"/>
+      <FILE id="d1bX30" name="Bowed1DWaveFirstOrder.cpp" compile="1" resource="0"
+            file="Source/Bowed1DWaveFirstOrder.cpp"/>
+      <FILE id="sDg1Yg" name="Bowed1DWaveFirstOrder.h" compile="0" resource="0"
+            file="Source/Bowed1DWaveFirstOrder.h"/>
       <FILE id="pKxgeB" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="BfPAob" name="PluginProcessor.h" compile="0" resource="0"

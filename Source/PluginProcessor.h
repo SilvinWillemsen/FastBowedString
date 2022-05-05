@@ -10,7 +10,7 @@
 
 #include <JuceHeader.h>
 #include "Global.h"
-#include "Bowed1DWave.h"
+#include "Bowed1DWaveFirstOrder.h"
 
 //==============================================================================
 /**
@@ -55,18 +55,33 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    std::shared_ptr<Bowed1DWave> getBowed1DWavePtr() { return bowed1DWave; };
+    std::shared_ptr<Bowed1DWaveFirstOrder> getBowed1DWaveFirstOrderPtr() { return bowed1DWaveFirstOrder; };
     
-    String getDebugString() {
-//        return String(curSample);
-        return "Cursample: " + String(curSample) + " Diffsum: " + String(bowed1DWave->getDiffSum());
-    };
+    // Function for the editor to retrieve information about the state of the plugin (current sample number, or "diffsum")
+    String getDebugString();
 private:
     //==============================================================================
-    double fs;
+    double fs; // sample rate
     
-    std::shared_ptr<Bowed1DWave> bowed1DWave;
+    std::shared_ptr<Bowed1DWaveFirstOrder> bowed1DWaveFirstOrder;
     
+    // Current sample (debugging purposes only)
     unsigned long curSample = 0;
+    
+    // Current buffer (debugging purposes only)
+    unsigned long curBuffer = 0;
+
+    // Cumulative time for calculating the reference, optimised matrix, or optimised vector method (debugging purposes only)
+    double cumulativeTimePerBufferRef = 0;
+    double cumulativeTimePerBufferOpt = 0;
+    double cumulativeTimePerBufferOptVec = 0;
+    
+    // Average time per sample of calculating the reference, optimised matrix, or optimised vector method (debugging purposes only)
+    double avgTimeRef;
+    double avgTimeOpt;
+    double avgTimeOptVec;
+
+    // Sum of the difference between the refence and the optimised states (debugging purposes only)
+    double diffsum;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FastBowedStringAudioProcessor)
 };

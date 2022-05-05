@@ -17,10 +17,10 @@ FastBowedStringAudioProcessorEditor::FastBowedStringAudioProcessorEditor (FastBo
     // editor's size to whatever you need it to be.
     
     // Get the bowed1dWave pointer to put it in the application (see resized())
-    bowed1DWave = p.getBowed1DWavePtr();
+    bowed1DWaveFirstOrder = p.getBowed1DWaveFirstOrderPtr();
     
     // Add the bowed1DWave to the application and make it visible (a JUCE must-have)
-    addAndMakeVisible (bowed1DWave.get());
+    addAndMakeVisible (bowed1DWaveFirstOrder.get());
     
     // Refresh the graphics at a rate of 15 Hz
     startTimerHz (15);
@@ -51,8 +51,8 @@ void FastBowedStringAudioProcessorEditor::paint (juce::Graphics& g)
 void FastBowedStringAudioProcessorEditor::resized()
 {
     // Position the bowed1DWave in the application (fully encompassing the application bounds)
-    if (bowed1DWave != nullptr)
-        bowed1DWave->setBounds(getLocalBounds());
+    if (bowed1DWaveFirstOrder != nullptr)
+        bowed1DWaveFirstOrder->setBounds(getLocalBounds());
     
     dbgLabel->setBounds (0, getHeight() - 50, getWidth(), 50);
 }

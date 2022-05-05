@@ -1,7 +1,7 @@
 /*
   ==============================================================================
 
-    Bowed1DWave.cpp
+    Bowed1DWaveFirstOrder.cpp
     Created: 25 Apr 2022 12:20:12pm
     Author:  Silvin Willemsen
 
@@ -9,10 +9,10 @@
 */
 
 #include <JuceHeader.h>
-#include "Bowed1DWave.h"
+#include "Bowed1DWaveFirstOrder.h"
 
 //==============================================================================
-Bowed1DWave::Bowed1DWave (double k) : k (k)
+Bowed1DWaveFirstOrder::Bowed1DWaveFirstOrder (double k) : k (k)
 {
     L = 0.7;
     c = 300;
@@ -85,9 +85,10 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     
     Tinv = T.inverse().sparseView();
     
-    Tinv.prune (1e-8); // test the prune value and whether it makes it faster..
+//    Tinv.pruned();
+    Tinv.prune (1e-8); //test the prune value and whether it makes it faster..
     
-    TzT = SparseMatrix<double> (NN, NN);
+    TzzT = SparseMatrix<double> (NN, NN);
 
     // Vector forms
     TinvVec = std::vector<std::vector<double>> (NN,
@@ -114,7 +115,7 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     bxVec = std::vector<double> (NN, 0);
     zetaVec = std::vector<double> (NN, 0);
     
-    TzTVec  = std::vector<std::vector<double>> (NN,
+    TzzTVec  = std::vector<std::vector<double>> (NN,
                                                 std::vector<double> (NN, 0));
     AinvVec  = std::vector<std::vector<double>> (NN,
                                                 std::vector<double> (NN, 0));
@@ -129,8 +130,6 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
     
     BpreVec = std::vector<std::vector<double>> (NN,
                                                std::vector<double> (NN, 0));
-    BmatVec = std::vector<std::vector<double>> (NN,
-                                               std::vector<double> (NN, 0));
     
     for (int i = 0; i < NN; ++i)
         for (int j = 0; j < NN; ++j)
@@ -138,34 +137,40 @@ Bowed1DWave::Bowed1DWave (double k) : k (k)
 
 }
 
-Bowed1DWave::~Bowed1DWave()
+Bowed1DWaveFirstOrder::~Bowed1DWaveFirstOrder()
 {
 }
 
-void Bowed1DWave::paint (juce::Graphics& g)
+void Bowed1DWaveFirstOrder::paint (juce::Graphics& g)
 {
     // clear the background
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
     
-    // draw the state of the optimised algorithm
-    g.setColour (Colours::cyan);
-    g.strokePath (visualiseState (g, 50000, &x.coeffRef (0), -0.2 * getHeight()), PathStrokeType(2.0f));
-    
-    // draw the state of the vector
-    g.setColour (Colours::yellow);
-    g.strokePath (visualiseState (g, 50000, xVec[1], 0.2 * getHeight()), PathStrokeType(2.0f));
-
-    // draw the state of the reference
+#ifdef RUN_ALL
+    // draw the state of the reference solution
     g.setColour (Colours::green);
     g.strokePath (visualiseState (g, 50000, &xRef.coeffRef (0), 0.2 * getHeight()), PathStrokeType(2.0f));
 
+    // draw the state of the optimised matrix form
+    g.setColour (Colours::yellow);
+    g.strokePath (visualiseState (g, 50000, &x.coeffRef (0), -0.2 * getHeight()), PathStrokeType(2.0f));
+    
+    // draw the state of the vector form
+    g.setColour (Colours::cyan);
+    g.strokePath (visualiseState (g, 50000, xVec[1], 0), PathStrokeType(2.0f));
+#else
+    // only draw the state of the vector form
+    g.setColour (Colours::cyan);
+    g.strokePath (visualiseState (g, 50000, xVec[1], 0), PathStrokeType(2.0f));
+
+#endif
+    
 }
 
 
-Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling, double* x, double offset)
+Path Bowed1DWaveFirstOrder::visualiseState (Graphics& g, double visualScaling, double* x, double offset)
 {
-    // String-boundaries are in the vertical middle of the component
-//    double offset = getHeight() * 0.02;
+    // String-boundaries are in the vertical middle of the component with a given offset
     double stringBoundaries = getHeight() / 2.0 + offset;
     
     // initialise path
@@ -177,10 +182,10 @@ Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling, double* x, 
     double spacing = getWidth() / static_cast<double>(N);
     double xLoc = spacing;
     
-    for (int l = 1; l < N; l++)
+    for (int l = 0; l < N; l++)
     {
         // Needs to be -x, because a positive x would visually go down
-        float newY = -x[l+N-1] * visualScaling + stringBoundaries;
+        float newY = -x[l+N] * visualScaling + stringBoundaries;
         
         // if we get NAN values, make sure that we don't get an exception
         if (isnan(newY))
@@ -195,15 +200,10 @@ Path Bowed1DWave::visualiseState (Graphics& g, double visualScaling, double* x, 
 }
 
 
-void Bowed1DWave::resized()
+void Bowed1DWaveFirstOrder::recalculateZeta()
 {
-    // This method is where you should set the bounds of any child
-    // components that your component contains..
-
-}
-
-void Bowed1DWave::recalculateZeta()
-{
+    // Identify where the non-zero values of zeta are
+    bool zetaFlag = false;
     for (int i = 0; i < NN; ++i)
     {
         if (zetaVec[i] != 0)
@@ -218,14 +218,18 @@ void Bowed1DWave::recalculateZeta()
         }
     }
     
-    zetaZetaT = zeta * zeta.transpose();
+    // Get the zeta * zeta^T matrix
+    zetaZetaT = (zeta * zeta.transpose()).pruned();
     
     zetaZetaTVec = std::vector<std::vector<double>> (NN, std::vector<double> (NN, 0));
     for (int i = 0; i < NN; ++i)
         for (int j = 0; j < NN; ++j)
             zetaZetaTVec[i][j] = zetaZetaT.coeff (i, j);
     
-    // T^{-1}z
+    // Calculate T^{-1}zeta
+    TinvZeta = Tinv * zeta;
+   
+    // Get it in c++ vector form
     for (int i = 0; i < NN; ++i)
     {
         TinvZetaVec[i] = 0;
@@ -233,122 +237,25 @@ void Bowed1DWave::recalculateZeta()
             TinvZetaVec[i] += TinvVec[i][j] * zetaVec[j];
     }
     
-    // Sherman-Morrison
+    /// Sherman-Morrison
+    
+    // Calculate zeta^T * T^{-1} * zeta
     zTz = 0;
     for (int i = 0; i < NN; ++i)
         zTz += zetaVec[i] * TinvZetaVec[i];
     
-    // T^{-1}z
-    TinvZeta = Tinv * zeta;
+    // Calculate T^{-1} * zeta * zeta^T * T^{-1}
+    TzzT = (TinvZeta * zeta.transpose() * Tinv).pruned();
     
-    TzT = (TinvZeta * zeta.transpose() * Tinv);
+    // Get it in c++ vector form
     for (int i = 0; i < NN; ++i)
         for (int j = 0; j < NN; ++j)
-            TzTVec[i][j] = TzT.coeff (i, j);
+            TzzTVec[i][j] = TzzT.coeff (i, j);
 
 }
 
-
-void Bowed1DWave::calculateFirstOrder()
-{
-//    recalculateZeta();
-    
-    double now = Time::getMillisecondCounterHiRes();
-    calculateFirstOrderRef(); // reference
-    std::cout << "1: Reference matrix: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
-
-    now = Time::getMillisecondCounterHiRes();
-    calculateFirstOrderOpt(); // optimised
-    std::cout << "2: Optimized matrix: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
-        
-    now = Time::getMillisecondCounterHiRes();
-    calculateFirstOrderOptVec(); // optimised with vector
-    std::cout << "3: Optimized vector: " << String (Time::getMillisecondCounterHiRes() - now) << std::endl;
-
-
-    diffsum = 0;
-    // using xVec[1] here for the vector version because the pointer switch has been done already
-    for (int i = 0; i < NN; ++i)
-        diffsum += (xNext.coeff(i) - xNextRef.coeff (i));
-    
-}
-
-void Bowed1DWave::calculateFirstOrderOptVec()
-{
-    double bowLoc = xB * N / L; // xB can be made user-controlled
-//    eta = h * 1.0 / h * Global::cubicInterpolation((double*)&x[1], floor(bowLoc), bowLoc - floor(bowLoc)) - vB;
-    eta = h * 1.0 / h * xVec[1][N + (int)floor(bowLoc)] - vB; // should include zeta here as well
-    
-    // Non-iterative coefficients
-    lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
-    d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
-    
-    double invDiv = 1.0 + Fb * h * lambda * 0.5 * zTz;
-    double divTerm = (Fb * h * lambda * 0.5) / invDiv;
-    for (int i = 0; i < NN; ++i)
-        for (int j = 0; j < NN; ++j)
-            AinvVec[i][j] = TinvVec[i][j] - TzTVec[i][j] * divTerm;
-    
-    // B matrix
-    BmatVec = BpreVec;
-//    for (int i = 0; i < NN; ++i)
-//        for (int j = 0; j < NN; ++j)
-    for (int i = zetaStartIdx; i < zetaEndIdx; ++i)
-        for (int j = zetaStartIdx; j < zetaEndIdx; ++j)
-            BmatVec[i][j] += Fb * h * (0.5 * lambda - d) * zetaZetaTVec[i][j];
-    
-    // Calculate x^{n+1}
-    for (int i = 0; i < NN; ++i)
-    {
-        bxVec[i] = 0;
-        for (int j = 0; j < NN; ++j)
-            bxVec[i] += (BmatVec[i][j] * xVec[1][j]);
-    }
-    for (int i = zetaStartIdx; i < zetaEndIdx; ++i)
-        bxVec[i] += Fb * zetaVec[i] * d * vB;
-    
-    for (int i = 0; i < NN; ++i)
-    {
-        xVec[0][i] = 0;
-        for (int j = 0; j < NN; ++j)
-            xVec[0][i] += AinvVec[i][j] * bxVec[j];
-    }
-    
-    // Update states here
-    double* xTmp = xVec[1];
-    xVec[1] = xVec[0];
-    xVec[0] = xTmp;
-    
-}
-
-void Bowed1DWave::calculateFirstOrderOpt()
-{
-    double bowLoc = xB * N / L; // xB can be made user-controlled
-//    eta = h * 1.0 / h * Global::cubicInterpolation((double*)&x[1], floor(bowLoc), bowLoc - floor(bowLoc)) - vB;
-    eta = h * 1.0 / h * x.data()[N + (int)floor(bowLoc)] - vB;
-    
-    // Non-iterative coefficients
-    lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
-    d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
-
-    // Sherman-Morrison
-    double invDiv = 1.0 + Fb * h * lambda * 0.5 * zTz;
-    double divTerm = (Fb * h * lambda * 0.5) / invDiv;
-
-    Ainv = Tinv - TzT * divTerm;
-    
-    // B matrix
-    Bmat = Bpre + (Fb * h * (0.5 * lambda - d) * zetaZetaT);
-    
-    // Calculate x^{n+1}
-    xNext = Ainv * (Bmat * x + Fb * zeta * d * vB);
-
-    // Update states here
-    x = xNext;
-    
-}
-
-void Bowed1DWave::calculateFirstOrderRef()
+// Reference solution (using matrix inversion)
+void Bowed1DWaveFirstOrder::calculateFirstOrderRef()
 {
     
     double bowLoc = xB * N / L; // xB can be made user-controlled
@@ -381,15 +288,102 @@ void Bowed1DWave::calculateFirstOrderRef()
     xRef = xNextRef;
 }
 
-void Bowed1DWave::updateStates()
+// Sherman-Morrison using matrices
+void Bowed1DWaveFirstOrder::calculateFirstOrderOpt()
 {
-    // For comparison between the various implementations this function is unused now..
+    double bowLoc = xB * N / L; // If xB is made user-controlled, recalculateZeta() should be called either every sample, or every time xB is changed
+
+    // Relative velocity between bow and string
+    eta = h * 1.0 / h * x.data()[N + (int)floor(bowLoc)] - vB;
     
-    // pointer switch (much faster than copying the states in MATLAB);
-//    double* xTmp = x[1];
-//    x[1] = x[0];
-//    x[0] = xTmp;
+    // Non-iterative coefficients
+    lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
+    d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
+
+    // Sherman-Morrison
+    double invDiv = 1.0 + Fb * h * lambda * 0.5 * zTz;
+    double divTerm = (Fb * h * lambda * 0.5) / invDiv;
+
+    Ainv = Tinv - (TzzT * divTerm).pruned();
     
-//    x = xNext;
-//    xRef = xNextRef;
+    // B matrix
+    Bmat = Bpre + (Fb * h * (0.5 * lambda - d) * zetaZetaT);
+    
+    // Calculate x^{n+1}
+    xNext = Ainv * (Bmat * x + Fb * zeta * d * vB);
+
+    // Update states here
+    x = xNext;
+    
+}
+
+// Sherman-Morrison optimised (only using c++ vectors)
+void Bowed1DWaveFirstOrder::calculateFirstOrderOptVec()
+{
+    double bowLoc = xB * N / L; // If xB is made user-controlled, recalculateZeta() should be called either every sample, or every time xB is changed
+    
+    // Relative velocity between bow and string
+    eta = h * 1.0 / h * xVec[1][N + (int)floor(bowLoc)] - vB; // should include zeta here as well if interpolation is used
+    
+    // Non-iterative coefficients
+    lambda = sqrt(2.0*a) * (1.0 - 2.0 * a * eta * eta) * exp(-a * eta * eta + 0.5);
+    d = sqrt(2.0 * a) * exp(-a * eta * eta + 0.5);
+    
+    // Calculate A^{-1} (Sherman-Morrison)
+    double invDiv = 1.0 + Fb * h * lambda * 0.5 * zTz;
+    double divTerm = (Fb * h * lambda * 0.5) / invDiv;
+    for (int i = 0; i < NN; ++i)
+        for (int j = 0; j < NN; ++j)
+            AinvVec[i][j] = TinvVec[i][j] - TzzTVec[i][j] * divTerm;
+    
+    
+    
+    /// Prepare the RHS of the linear system (i.e., B * x + Fb * zeta * d * vB) named bxVec here
+    
+    // Non-zero values due to I/k on the diagonal
+    for (int i = 0; i < NN; ++i)
+        bxVec[i] = BpreVec[i][i] * xVec[1][i]; // Overwrite (=) bxVec here and add (+=) in the operations below
+    
+    // Non-zero values due to J/2
+    for (int i = 0; i < N; ++i) // top-right quadrant of BpreVec
+        for (int j = std::max(N, N-1 + i); j <= std::min(NN-1, N+i); ++j)
+            bxVec[i] += BpreVec[i][j] * xVec[1][j];
+
+    for (int i = N; i < NN; ++i) // bottom-left quadrant of BpreVec
+        for (int j = i - N; j <= i - (N-1); ++j)
+            bxVec[i] += BpreVec[i][j] * xVec[1][j];
+    
+    // Add effect of bow term. If no interpolation is used, this loop is just one iteration.
+    for (int i = zetaStartIdx; i < zetaEndIdx; ++i)
+    {
+        bxVec[i] += Fb * zetaVec[i] * d * vB; // this is assuming that vB doesn't change (otherwise we need "\mu_+ vB")
+        
+        // Non-iterative term
+        for (int j = zetaStartIdx; j < zetaEndIdx; ++j)
+            bxVec[i] += Fb * h * (0.5 * lambda - d) * zetaZetaTVec[i][j] * xVec[1][j];
+    }
+    
+    // Calculate x^{n+1} by multiplying bxVec by A^{-1}
+    for (int i = 0; i < NN; ++i) // if not modal, otherwise i < N-1
+    {
+        xVec[0][i] = 0;
+        for (int j = 0; j < NN; ++j)
+            xVec[0][i] += AinvVec[i][j] * bxVec[j];
+    }
+        
+    // Pointer switch (update states)
+    double* xTmp = xVec[1];
+    xVec[1] = xVec[0];
+    xVec[0] = xTmp;
+    
+}
+
+double Bowed1DWaveFirstOrder::getDiffSum()
+{
+   diffsum = 0;
+   // using xVec[1] here for the vector version because the pointer switch has been done already
+   for (int i = 0; i < NN; ++i)
+       diffsum += (xVec[1][i] - xNextRef.coeff (i));
+    
+   return diffsum;
 }

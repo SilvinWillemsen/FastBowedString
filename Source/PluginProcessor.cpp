@@ -100,7 +100,7 @@ void FastBowedStringAudioProcessor::prepareToPlay (double sampleRate, int sample
     fs = sampleRate;
     
     // Initialise Bowed 1D Wave equation class with k
-    bowed1DWave = std::make_shared<Bowed1DWave> (1.0 / fs);
+    bowed1DWaveFirstOrder = std::make_shared<Bowed1DWaveFirstOrder> (1.0 / fs);
 }
 
 void FastBowedStringAudioProcessor::releaseResources()
@@ -157,21 +157,60 @@ void FastBowedStringAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     float output = 0.0;
 
     std::vector<float* const*> curChannel {&channelData1, &channelData2};
-        
+    
+    // Run all schemes and compare their runtimes (only makes sense in release mode)
+#ifdef RUN_ALL
+    // Increment the current buffer (only for time measurement)
+    ++curBuffer;
+
+    // Get the current time
+    double now = Time::getMillisecondCounterHiRes();
+
+    // Calculate one buffer of the reference method
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+        bowed1DWaveFirstOrder->calculateFirstOrderRef();
+    cumulativeTimePerBufferRef += (Time::getMillisecondCounterHiRes() - now);
+    
+    // Calculate average time per sample for the reference method
+    avgTimeRef = cumulativeTimePerBufferRef / (curBuffer * buffer.getNumSamples());
+    
+    now = Time::getMillisecondCounterHiRes();
+    
+    // Calculate one buffer of the optimised matrix form
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+        bowed1DWaveFirstOrder->calculateFirstOrderOpt();
+    cumulativeTimePerBufferOpt += (Time::getMillisecondCounterHiRes() - now);
+    
+    // Calculate average time per sample for the optimised matrix form
+    avgTimeOpt = cumulativeTimePerBufferOpt / (curBuffer * buffer.getNumSamples());
+
+    now = Time::getMillisecondCounterHiRes();
+    
+    // Calculate one buffer of the optimised vector form
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+        bowed1DWaveFirstOrder->calculateFirstOrderOptVec();
+    cumulativeTimePerBufferOptVec += (Time::getMillisecondCounterHiRes() - now);
+
+    // Calculate average time per sample for the optimised vector form
+    avgTimeOptVec = cumulativeTimePerBufferOptVec / (curBuffer * buffer.getNumSamples());
+
+    std::cout << "1: Reference matrix: " << avgTimeRef << std::endl;
+    std::cout << "2: Optimized matrix: " << avgTimeOpt << std::endl;
+    std::cout << "3: Optimized vector: " << avgTimeOptVec << std::endl;
+#else
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
-//        for (int o = 0; o < oversamplingFac; ++o)
-//        {
-            bowed1DWave->calculateFirstOrder();
-            bowed1DWave->updateStates();
-//        }
-        output = bowed1DWave->getOutput (0.8); // get output at 0.8L of the string
+        bowed1DWaveFirstOrder->calculateFirstOrderOptVec();
+        output = bowed1DWaveFirstOrder->getOutput (0.8); // get output at 0.8L of the string
 //        DBG(output);
         for (int channel = 0; channel < totalNumOutputChannels; ++channel)
             curChannel[channel][0][i] = Global::limitOutput (output);
-        
+
         ++curSample;
     }
+#endif
+    diffsum = bowed1DWaveFirstOrder->getDiffSum();
+
 }
 
 //==============================================================================
@@ -204,4 +243,13 @@ void FastBowedStringAudioProcessor::setStateInformation (const void* data, int s
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new FastBowedStringAudioProcessor();
+}
+
+String FastBowedStringAudioProcessor::getDebugString()
+{
+#ifdef RUN_ALL
+   return "Diffsum: " + String(diffsum) + " Cursample: " + String(curSample);
+#else
+   return "Cursample: " + String(curSample);
+#endif
 }
