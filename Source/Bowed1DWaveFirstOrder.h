@@ -65,10 +65,10 @@ private:
     // Vectors and matrices (eigen library)
     Eigen::VectorXd xNext, x, xNextRef, xRef, xPaint, xRefPaint;
     
-    Eigen::MatrixXd T;
-    Eigen::SparseMatrix<double, Eigen::RowMajor> I, J, Tinv, zetaZetaT, TzzT;
-    Eigen::SparseMatrix<double, Eigen::RowMajor> Amat, Bmat, Apre, Bpre, Ainv;
-    Eigen::VectorXd zetaTinv, TinvZeta, b, bx;
+    Eigen::MatrixXd T, altT;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> I, J, Tinv, zetaZetaT, TzzT, Amat, Bmat, Apre, Bpre, Ainv;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> altJ, altTinv, altZetaZetaT, altTzzT, altApre, altBpre;
+    Eigen::VectorXd zetaTinv, TinvZeta, b, bx, altTinvZeta;
     Eigen::SparseVector<double> zeta;
     
     // C++ vector equivalents of the above

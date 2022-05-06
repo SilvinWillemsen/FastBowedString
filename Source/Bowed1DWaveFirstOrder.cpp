@@ -15,7 +15,7 @@
 Bowed1DWaveFirstOrder::Bowed1DWaveFirstOrder (double k) : k (k)
 {
     L = 0.7;
-    c = 300;
+    c = 2000;
     h = c * k; // using h to calculate number of modes
     N = floor (L / h);
     
@@ -67,6 +67,9 @@ Bowed1DWaveFirstOrder::Bowed1DWaveFirstOrder (double k) : k (k)
     J = SparseMatrix<double, RowMajor> (NN, NN);
     J.setZero();
     
+    altJ = SparseMatrix<double, RowMajor> (NN, NN);
+    altJ.setZero();
+
     for (int i = 0; i < N-1; ++i)
     {
         // top right quadrant
@@ -76,31 +79,54 @@ Bowed1DWaveFirstOrder::Bowed1DWaveFirstOrder (double k) : k (k)
         // bottom left quadrant
         J.coeffRef(N+i, i) += -c / h;
         J.coeffRef(N+i, i+1) += c / h;
+        
+        altJ.coeffRef(i,N+i) += 1;
+        altJ.coeffRef(N+i,i) += -2.0 * c * c / (h * h);
+        if (i != N-2)
+        {
+            altJ.coeffRef(N+i,i+1) += c * c / (h * h);
+            altJ.coeffRef(N+i+1,i) += c * c / (h * h);
+        }
 
     }
-
-    using namespace Eigen;
+    altJ.coeffRef(N-1, 2 * N - 2) += 1;
     
     T = I / k - J / 2.0;
-    
+    altT = I / k - altJ / 2.0;
+
     Tinv = T.inverse().sparseView();
-    
+    altTinv = altT.inverse().sparseView();
+
 //    Tinv.pruned();
     Tinv.prune (1e-8); //test the prune value and whether it makes it faster..
-    
-    TzzT = SparseMatrix<double> (NN, NN);
+    altTinv.prune (1e-8); //test the prune value and whether it makes it faster..
 
-    // Vector forms
+    TzzT = SparseMatrix<double> (NN, NN);
+    altTzzT = SparseMatrix<double> (NN, NN);
+
+    // Vector forms (NOW INITIALISING WITH THE ALTERNATIVE DEFINITIONS FOR J AND T)
     TinvVec = std::vector<std::vector<double>> (NN,
                                                std::vector<double> (NN, 0));
     for (int i = 0; i < NN; ++i)
         for (int j = 0; j < NN; ++j)
-            TinvVec[i][j] = Tinv.coeff(i, j);
+            TinvVec[i][j] = altTinv.coeff(i, j);
+
     TinvZetaVec = std::vector<double> (NN, 0);
     
-    Apre = I / k - J / 2;
-    Bpre = I / k + J / 2;
+    Apre = SparseMatrix<double, RowMajor> (NN, NN);
+    Bpre = SparseMatrix<double, RowMajor> (NN, NN);
+    Apre.setZero();
+    Bpre.setZero();
+    altApre = SparseMatrix<double, RowMajor> (NN, NN);
+    altBpre = SparseMatrix<double, RowMajor> (NN, NN);
+    altApre.setZero();
+    altBpre.setZero();
     
+    Apre = I / k - J / 2.0;
+    Bpre = I / k + J / 2.0;
+    altApre = I / k - altJ / 2.0;
+    altBpre = I / k + altJ / 2.0;
+
     Amat = SparseMatrix<double, RowMajor> (NN, NN);
     Bmat = SparseMatrix<double, RowMajor> (NN, NN);
     Amat.setZero();
@@ -125,7 +151,7 @@ Bowed1DWaveFirstOrder::Bowed1DWaveFirstOrder (double k) : k (k)
 #else
     zeta.coeffRef(N + (int)floor(xB * N / L)) = 1.0 / h;
     zetaVec[N + (int)floor(xB * N / L)]= 1.0 / h;
-    recalculateZeta(); // if done in the loop this can be excluded here
+    recalculateZeta(); // if done in the loop before calculating the scheme this can be excluded here
 #endif
     
     BpreVec = std::vector<std::vector<double>> (NN,
@@ -133,7 +159,10 @@ Bowed1DWaveFirstOrder::Bowed1DWaveFirstOrder (double k) : k (k)
     
     for (int i = 0; i < NN; ++i)
         for (int j = 0; j < NN; ++j)
-            BpreVec[i][j] = Bpre.coeff(i, j);
+            BpreVec[i][j] = altBpre.coeff(i, j);
+    
+    std::cout << altBpre << std::endl;
+
 
 }
 
@@ -228,7 +257,8 @@ void Bowed1DWaveFirstOrder::recalculateZeta()
     
     // Calculate T^{-1}zeta
     TinvZeta = Tinv * zeta;
-   
+    altTinvZeta = altTinv * zeta;
+
     // Get it in c++ vector form
     for (int i = 0; i < NN; ++i)
     {
@@ -246,11 +276,12 @@ void Bowed1DWaveFirstOrder::recalculateZeta()
     
     // Calculate T^{-1} * zeta * zeta^T * T^{-1}
     TzzT = (TinvZeta * zeta.transpose() * Tinv).pruned();
-    
+    altTzzT = (altTinvZeta * zeta.transpose() * altTinv).pruned();
+
     // Get it in c++ vector form
     for (int i = 0; i < NN; ++i)
         for (int j = 0; j < NN; ++j)
-            TzzTVec[i][j] = TzzT.coeff (i, j);
+            TzzTVec[i][j] = altTzzT.coeff (i, j);
 
 }
 
@@ -345,13 +376,17 @@ void Bowed1DWaveFirstOrder::calculateFirstOrderOptVec()
         bxVec[i] = BpreVec[i][i] * xVec[1][i]; // Overwrite (=) bxVec here and add (+=) in the operations below
     
     // Non-zero values due to J/2
-    for (int i = 0; i < N; ++i) // top-right quadrant of BpreVec
-        for (int j = std::max(N, N-1 + i); j <= std::min(NN-1, N+i); ++j)
-            bxVec[i] += BpreVec[i][j] * xVec[1][j];
+    for (int i = 0; i < NN; ++i)
+        for (int j = 0; j < NN; ++j)
+            bxVec[i] += BpreVec[i][i] * xVec[1][j];
 
-    for (int i = N; i < NN; ++i) // bottom-left quadrant of BpreVec
-        for (int j = i - N; j <= i - (N-1); ++j)
-            bxVec[i] += BpreVec[i][j] * xVec[1][j];
+//    for (int i = 0; i < N; ++i) // top-right quadrant of BpreVec
+//        for (int j = std::max(N, N+i); j <= std::min(NN-1, N+i); ++j)
+//            bxVec[i] += BpreVec[i][i] * xVec[1][j];
+//
+//    for (int i = N; i < NN; ++i) // bottom-left quadrant of BpreVec
+//        for (int j =  std::max(i - N - 1, 0); j <= std::min(i - (N-1), N-1); ++j)
+//            bxVec[i] += BpreVec[i][j] * xVec[1][j];
     
     // Add effect of bow term. If no interpolation is used, this loop is just one iteration.
     for (int i = zetaStartIdx; i < zetaEndIdx; ++i)
