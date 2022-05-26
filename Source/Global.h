@@ -11,6 +11,7 @@
 #pragma once
 #include "../eigen/Eigen/Eigen"
 #define RUN_ALL  // define this macro if you want to run all methods (reference, optimised matrix and optimised vector)
+#define TIME_DOMAIN_STRING 0
 
 namespace Global
 {

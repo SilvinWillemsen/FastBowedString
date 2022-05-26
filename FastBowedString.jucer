@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="YwLLHS" name="FastBowedString" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="1" displaySplashScreen="1" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="1" displaySplashScreen="1" jucerFormatVersion="1"
+              pluginCharacteristicsValue="pluginIsSynth" pluginAUMainType="'aufx'"
+              pluginRTASCategory="0" pluginAAXCategory="0">
   <MAINGROUP id="CrcufO" name="FastBowedString">
     <GROUP id="{086D6846-2393-59F9-19CE-E37554B44FCE}" name="Source">
+      <FILE id="nSoXW3" name="ModalStiffStringProcessor.cpp" compile="1"
+            resource="0" file="Source/ModalStiffStringProcessor.cpp"/>
+      <FILE id="UBOfg4" name="ModalStiffStringProcessor.h" compile="0" resource="0"
+            file="Source/ModalStiffStringProcessor.h"/>
+      <FILE id="UYiA0S" name="ModalStiffStringView.cpp" compile="1" resource="0"
+            file="Source/ModalStiffStringView.cpp"/>
+      <FILE id="fDsoY6" name="ModalStiffStringView.h" compile="0" resource="0"
+            file="Source/ModalStiffStringView.h"/>
       <FILE id="MYacdT" name="Global.h" compile="0" resource="0" file="Source/Global.h"/>
       <FILE id="d1bX30" name="Bowed1DWaveFirstOrder.cpp" compile="1" resource="0"
             file="Source/Bowed1DWaveFirstOrder.cpp"/>
@@ -18,7 +28,8 @@
       <FILE id="Ay88vp" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>
-  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"
+               JUCE_ASIO="1"/>
   <EXPORTFORMATS>
     <VS2019 targetFolder="Builds/VisualStudio2019">
       <CONFIGURATIONS>
@@ -27,7 +38,7 @@
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../newJUCE/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../newJUCE/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="..\..\..\..\..\..\JUCE\juce-6.1.6-windows\JUCE\modules\juce_audio_devices"/>
         <MODULEPATH id="juce_audio_formats" path="../../newJUCE/JUCE/modules"/>
         <MODULEPATH id="juce_audio_plugin_client" path="../../newJUCE/JUCE/modules"/>
         <MODULEPATH id="juce_audio_processors" path="../../newJUCE/JUCE/modules"/>
@@ -47,7 +58,7 @@
       </CONFIGURATIONS>
       <MODULEPATHS>
         <MODULEPATH id="juce_audio_basics" path="../../newJUCE/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="../../newJUCE/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_devices" path="..\..\..\..\..\..\JUCE\juce-6.1.6-windows\JUCE\modules\juce_audio_devices"/>
         <MODULEPATH id="juce_audio_formats" path="../../newJUCE/JUCE/modules"/>
         <MODULEPATH id="juce_audio_plugin_client" path="../../newJUCE/JUCE/modules"/>
         <MODULEPATH id="juce_audio_processors" path="../../newJUCE/JUCE/modules"/>
@@ -83,7 +94,7 @@
   </EXPORTFORMATS>
   <MODULES>
     <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
-    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
     <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_audio_plugin_client" showAllCode="1" useLocalCopy="0"
             useGlobalPath="1"/>

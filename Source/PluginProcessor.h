@@ -11,6 +11,7 @@
 #include <JuceHeader.h>
 #include "Global.h"
 #include "Bowed1DWaveFirstOrder.h"
+#include "ModalStiffStringProcessor.h"
 
 //==============================================================================
 /**
@@ -55,15 +56,20 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    //==============================================================================
     std::shared_ptr<Bowed1DWaveFirstOrder> getBowed1DWaveFirstOrderPtr() { return bowed1DWaveFirstOrder; };
-    
+    std::shared_ptr<ModalStiffStringProcessor> GetModalStringProcessor();
+
     // Function for the editor to retrieve information about the state of the plugin (current sample number, or "diffsum")
     String getDebugString();
 private:
     //==============================================================================
-    double fs; // sample rate
+    double mSampleRate{ 0.0 }; // sample rate
+    int mBlockSize{ 0 };
     
     std::shared_ptr<Bowed1DWaveFirstOrder> bowed1DWaveFirstOrder;
+
+    std::shared_ptr<ModalStiffStringProcessor> mpModalStiffStringProcessor;
     
     // Current sample (debugging purposes only)
     unsigned long curSample = 0;
@@ -75,11 +81,15 @@ private:
     double cumulativeTimePerBufferRef = 0;
     double cumulativeTimePerBufferOpt = 0;
     double cumulativeTimePerBufferOptVec = 0;
+
+    double mCumulativeTimePerBufferMod{ 0.0 };
     
     // Average time per sample of calculating the reference, optimised matrix, or optimised vector method (debugging purposes only)
     double avgTimeRef;
     double avgTimeOpt;
     double avgTimeOptVec;
+
+    double mAvgTimeMod{ 0.0 };
 
     // Sum of the difference between the refence and the optimised states (debugging purposes only)
     double diffsum;

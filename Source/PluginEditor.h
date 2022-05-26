@@ -12,6 +12,7 @@
 #include "Global.h"
 #include "PluginProcessor.h"
 #include "Bowed1DWaveFirstOrder.h"
+#include "ModalStiffStringView.h"
 //==============================================================================
 /**
 */
@@ -33,5 +34,7 @@ private:
     
     std::shared_ptr<Bowed1DWaveFirstOrder> bowed1DWaveFirstOrder;
     std::unique_ptr<Label> dbgLabel;
+
+    std::unique_ptr<ModalStiffStringView> mpModalStiffString;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FastBowedStringAudioProcessorEditor)
 };

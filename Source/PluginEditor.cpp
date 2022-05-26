@@ -12,7 +12,8 @@
 //==============================================================================
 FastBowedStringAudioProcessorEditor::FastBowedStringAudioProcessorEditor (FastBowedStringAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
-{
+{   
+#if TIME_DOMAIN_STRING
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.
     
@@ -34,8 +35,13 @@ FastBowedStringAudioProcessorEditor::FastBowedStringAudioProcessorEditor (FastBo
     dbgLabel->setJustificationType (Justification::centred);
     
     addAndMakeVisible (dbgLabel.get());
+#else
+    mpModalStiffString = std::make_unique<ModalStiffStringView>();
+    addAndMakeVisible(*mpModalStiffString);
+    mpModalStiffString->SetProcessor(p.GetModalStringProcessor());
+#endif
 
-    setSize (400, 300);
+    setSize (800, 600);
 }
 
 FastBowedStringAudioProcessorEditor::~FastBowedStringAudioProcessorEditor()
@@ -50,16 +56,22 @@ void FastBowedStringAudioProcessorEditor::paint (juce::Graphics& g)
 
 void FastBowedStringAudioProcessorEditor::resized()
 {
+#if TIME_DOMAIN_STRING
     // Position the bowed1DWave in the application (fully encompassing the application bounds)
     if (bowed1DWaveFirstOrder != nullptr)
         bowed1DWaveFirstOrder->setBounds(getLocalBounds());
     
     dbgLabel->setBounds (0, getHeight() - 50, getWidth(), 50);
+#else
+    mpModalStiffString->setBounds(getLocalBounds());
+#endif
 }
 
 void FastBowedStringAudioProcessorEditor::timerCallback()
 {
+#if TIME_DOMAIN_STRING
     // this function gets called from the JUCE backend at the rate specified by the startTimerHz (see constructor of this class)
     dbgLabel->setText (String (audioProcessor.getDebugString()), dontSendNotification);
     repaint();
+#endif
 }

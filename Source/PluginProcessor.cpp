@@ -93,14 +93,24 @@ void FastBowedStringAudioProcessor::changeProgramName (int index, const juce::St
 //==============================================================================
 void FastBowedStringAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
     
-    // retrieve samplerate
-    fs = sampleRate;
-    
+#if TIME_DOMAIN_STRING
     // Initialise Bowed 1D Wave equation class with k
-    bowed1DWaveFirstOrder = std::make_shared<Bowed1DWaveFirstOrder> (1.0 / fs);
+    bowed1DWaveFirstOrder = std::make_shared<Bowed1DWaveFirstOrder> (1.0 / sampleRate);
+#else
+    if (!mpModalStiffStringProcessor)
+    {
+        mpModalStiffStringProcessor = std::make_shared<ModalStiffStringProcessor>(1.0 / sampleRate);
+    }
+    else if (mSampleRate != sampleRate)
+    {
+        mpModalStiffStringProcessor->SetTimeStep(1.0 / sampleRate);
+    }   
+#endif
+
+    // save samplerate and block size
+    mSampleRate = sampleRate;
+    mBlockSize = samplesPerBlock;
 }
 
 void FastBowedStringAudioProcessor::releaseResources()
@@ -141,23 +151,23 @@ void FastBowedStringAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
-    for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+    //// In case we have more outputs than inputs, this code clears any output
+    //// channels that didn't contain input data, (because these aren't
+    //// guaranteed to be empty - they may contain garbage).
+    //// This is here to avoid people getting screaming feedback
+    //// when they first compile a plugin, but obviously you don't need to keep
+    //// this code if your algorithm always overwrites all the output channels.
+    //for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
+    //    buffer.clear (i, 0, buffer.getNumSamples());
+
+    float vOutput = 0.0;
     
+#if TIME_DOMAIN_STRING
     // Get pointers to output locations
-    float* const channelData1 = buffer.getWritePointer (0);
-    float* const channelData2 = totalNumOutputChannels > 1 ? buffer.getWritePointer (1) : nullptr;
+    float* const channelData1 = buffer.getWritePointer(0);
+    float* const channelData2 = totalNumOutputChannels > 1 ? buffer.getWritePointer(1) : nullptr;
+    std::vector<float* const*> curChannel{ &channelData1, &channelData2 };
 
-    float output = 0.0;
-
-    std::vector<float* const*> curChannel {&channelData1, &channelData2};
-    
     // Run all schemes and compare their runtimes (only makes sense in release mode)
 #ifdef RUN_ALL
     // Increment the current buffer (only for time measurement)
@@ -201,15 +211,39 @@ void FastBowedStringAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
         bowed1DWaveFirstOrder->calculateFirstOrderOptVec();
-        output = bowed1DWaveFirstOrder->getOutput (0.8); // get output at 0.8L of the string
-//        DBG(output);
+        vOutput = bowed1DWaveFirstOrder->getOutput (0.8); // get output at 0.8L of the string
+//        DBG(vOutput);
         for (int channel = 0; channel < totalNumOutputChannels; ++channel)
-            curChannel[channel][0][i] = Global::limitOutput (output);
+            curChannel[channel][0][i] = Global::limitOutput (vOutput);
 
         ++curSample;
     }
 #endif
     diffsum = bowed1DWaveFirstOrder->getDiffSum();
+#else
+
+    // Get the current time
+    //double vNow = Time::getMillisecondCounterHiRes();
+
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+    {
+        mpModalStiffStringProcessor->ComputeState();
+        vOutput = mpModalStiffStringProcessor->ReadOutput();
+        //DBG(Global::limitOutput(vOutput));
+        //jassert(vOutput <= 1 && vOutput >= -1);
+        for (int channel = 0; channel < totalNumOutputChannels; ++channel)
+        {
+            auto vpBuffer = buffer.getWritePointer(channel);
+            vpBuffer[i] = Global::limitOutput(vOutput);
+        }
+    }
+
+    //mCumulativeTimePerBufferMod = (Time::getMillisecondCounterHiRes() - vNow);
+    //float vRealTime = (1000 / mSampleRate) * mBlockSize;
+
+    //Logger::getCurrentLogger()->outputDebugString("3: Modal: " + String(mCumulativeTimePerBufferMod/vRealTime));
+
+#endif
 
 }
 
@@ -237,6 +271,12 @@ void FastBowedStringAudioProcessor::setStateInformation (const void* data, int s
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
 }
+
+std::shared_ptr<ModalStiffStringProcessor> FastBowedStringAudioProcessor::GetModalStringProcessor()
+{
+    return mpModalStiffStringProcessor;
+}
+
 
 //==============================================================================
 // This creates new instances of the plugin..
