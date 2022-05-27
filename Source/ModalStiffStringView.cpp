@@ -52,7 +52,7 @@ ModalStiffStringView::ModalStiffStringView()
 	mBowPressureLabel.attachToComponent(&mBowPressureSlider, false);
 	mBowPressureLabel.setJustificationType(juce::Justification::centred);
 
-	mBowSpeedSlider.setRange(0.0, 10.0, 0.001);
+	mBowSpeedSlider.setRange(0.0, 2.0, 0.0001);
 	mBowSpeedSlider.setValue(0.2, juce::sendNotification);
 	mBowSpeedSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
 	mBowSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
