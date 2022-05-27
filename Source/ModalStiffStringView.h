@@ -40,10 +40,10 @@ private:
 
     juce::TextButton mPlayButton;
     juce::TextButton mResetButton;
-
     juce::Slider mGainSlider;
 
-    std::vector<float> mOutputVect;
+    juce::Slider mInputPosSlider;
+    juce::Slider mReadPosSlider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ModalStiffStringView)
 };

@@ -18,13 +18,11 @@ ModalStiffStringProcessor::ModalStiffStringProcessor (double aK) : mTimeStep(aK)
     mFb = 10.f;
     mA = 100.f;
     mVb = 0.2f;
-    mExcitPos = 0.733 * mLength;
-    mReadPos = 0.53 * mLength;
 
     RecomputeModesNumber();
     RecomputeEigenFreqs();
-    RecomputeInModes();
-    RecomputeOutModes();
+    InitializeInModes();
+    InitializeOutModes();
     RecomputeDampProfile();
 
     InitializeStates();
@@ -54,6 +52,34 @@ void ModalStiffStringProcessor::SetPlayState(bool aPlayState)
     mPlayState.store(aPlayState);
 }
 
+void ModalStiffStringProcessor::ChangeInputPos(float aNewPos)
+{
+    //Position is in percentage of string length
+    if (aNewPos >= 0 && aNewPos <= 100)
+    {
+        mExcitPos = aNewPos * mLength;
+    }
+    else
+    {
+        jassertfalse;
+    }
+    RecomputeInModes();
+}
+
+void ModalStiffStringProcessor::ChangeReadPos(float aNewPos)
+{
+    //Position is in percentage of string length
+    if (aNewPos >= 0 && aNewPos <= 100)
+    {
+        mReadPos = aNewPos * mLength;
+    }
+    else
+    {
+        jassertfalse;
+    }
+    RecomputeOutModes();
+}
+
 void ModalStiffStringProcessor::SetGain(float aGain)
 {
     mGain.store(aGain);
@@ -66,7 +92,7 @@ void ModalStiffStringProcessor::ComputeState()
         float vZeta1 = 0.f;
         for (int i = 0; i < mModesNumber; ++i)
         {
-            vZeta1 += mModesIn[i] * mpStatesPointers[0][i + mModesNumber];
+            vZeta1 += mpModesInCurr.load()[i] * mpStatesPtrs[0][i + mModesNumber];
         }
 
         //Computing bow input
@@ -80,17 +106,17 @@ void ModalStiffStringProcessor::ComputeState()
         //Computing known terms
         for (int i = 0; i < mModesNumber; ++i)
         {
-            float vZeta2 = mModesIn[i] * vZeta1;
+            float vZeta2 = mpModesInCurr.load()[i] * vZeta1;
 
             //Notice that the first half of zeta in the matlab code is made of zeroes, 
             //so there is no point of computing multiplications by it
-            float vB1 = mB11[i] * mpStatesPointers[0][i] + mB12[i] * mpStatesPointers[0][i + mModesNumber];
-            float vB2 = mB21[i] * mpStatesPointers[0][i] + mB22[i] * mpStatesPointers[0][i + mModesNumber] +
+            float vB1 = mB11[i] * mpStatesPtrs[0][i] + mB12[i] * mpStatesPtrs[0][i + mModesNumber];
+            float vB2 = mB21[i] * mpStatesPtrs[0][i] + mB22[i] * mpStatesPtrs[0][i + mModesNumber] +
                 vZeta2 * 0.5f * mTimeStep * mFb * (vLambda - 2 * vD) +
-                mTimeStep * mFb * vD * mModesIn[i] * mVb;
+                mTimeStep * mFb * vD * mpModesInCurr.load()[i] * mVb;
 
             //Computing T^-1*a (see overleaf notes)
-            float vZ1 = 0.5f * mTimeStep * mFb * vLambda * mModesIn[i];
+            float vZ1 = 0.5f * mTimeStep * mFb * vLambda * mpModesInCurr.load()[i];
             mInvAv2[i] = (1 / mSchurComp[i]) * vZ1;
             mInvAv1[i] = -mT11[i] * mT12[i] * mInvAv2[i];
 
@@ -100,22 +126,22 @@ void ModalStiffStringProcessor::ComputeState()
             mInvAb2[i] = (1 / mSchurComp[i]) * vZ2;
             mInvAb1[i] = vY2 - mT11[i] * mT12[i] * mInvAb2[i];
 
-            vVt1 += mModesIn[i] * mInvAv2[i];
-            vVt2 += mModesIn[i] * mInvAb2[i];
+            vVt1 += mpModesInCurr.load()[i] * mInvAv2[i];
+            vVt2 += mpModesInCurr.load()[i] * mInvAb2[i];
         }
 
         float vCoeff = 1 / (1 + vVt1);
 
         for (int i = 0; i < mModesNumber; ++i)
         {
-            mpStatesPointers[1][i] = mInvAb1[i] - vCoeff * mInvAv1[i] * vVt2;
-            mpStatesPointers[1][i + mModesNumber] = mInvAb2[i] - vCoeff * mInvAv2[i] * vVt2;
+            mpStatesPtrs[1][i] = mInvAb1[i] - vCoeff * mInvAv1[i] * vVt2;
+            mpStatesPtrs[1][i + mModesNumber] = mInvAb2[i] - vCoeff * mInvAv2[i] * vVt2;
         }
 
         //Pointers switch
-        auto vpStatePointer = mpStatesPointers[0];
-        mpStatesPointers[0] = mpStatesPointers[1];
-        mpStatesPointers[1] = vpStatePointer;
+        auto vpStatePointer = mpStatesPtrs[0];
+        mpStatesPtrs[0] = mpStatesPtrs[1];
+        mpStatesPtrs[1] = vpStatePointer;
     }
 }
 
@@ -126,21 +152,10 @@ float ModalStiffStringProcessor::ReadOutput()
     {
         for (int i = 0; i < mModesNumber; ++i)
         {
-            vOutputValue += mModesOut[i] * mpStatesPointers[0][i];
+            vOutputValue += mpModesOutCurr.load()[i] * mpStatesPtrs[0][i];
         }
     }
-   
     return (mGain.load() * vOutputValue);
-}
-
-float* ModalStiffStringProcessor::GetModalState()
-{
-    return mpStatesPointers[0];
-}
-
-std::vector<float> ModalStiffStringProcessor::GetOutputModes()
-{
-    return mModesOut;
 }
 
 float ModalStiffStringProcessor::ComputeEigenFreq(int aModeNumber)
@@ -192,22 +207,52 @@ void ModalStiffStringProcessor::RecomputeEigenFreqs()
     }
 }
 
+void ModalStiffStringProcessor::InitializeInModes()
+{
+    mModesIn.resize(2);
+    mModesIn = std::vector<std::vector<float>>(2, std::vector<float>(mModesNumber, 0));
+
+    mpModesInCurr.store(&mModesIn[0][0]);
+    mpModesInNew.store(&mModesIn[1][0]);
+
+    RecomputeInModes();
+}
+
+void ModalStiffStringProcessor::InitializeOutModes()
+{
+    mModesOut.resize(2);
+    mModesOut = std::vector<std::vector<float>>(2, std::vector<float>(mModesNumber, 0));
+
+    mpModesOutCurr.store(&mModesOut[0][0]);
+    mpModesOutNew.store(&mModesOut[1][0]);
+
+    RecomputeOutModes();
+}
+
 void ModalStiffStringProcessor::RecomputeInModes()
 {
-    mModesIn.resize(mModesNumber);
+    //Computing new modes offline on another thread
     for (int i = 0; i < mModesNumber; ++i)
     {
-        mModesIn[i] = ComputeMode(mExcitPos, i + 1);
+        mpModesInNew.load()[i] = ComputeMode(mExcitPos, i + 1);
     }
+    //Atomic pointers switch allows to change position online
+    auto vpModesPtr = mpModesInCurr.load();
+    mpModesInCurr.store(mpModesInNew.load());
+    mpModesInNew.store(vpModesPtr);
 }
 
 void ModalStiffStringProcessor::RecomputeOutModes()
 {
-    mModesOut.resize(mModesNumber);
+    //Computing new modes offline on another thread
     for (int i = 0; i < mModesNumber; ++i)
     {
-        mModesOut[i] = ComputeMode(mReadPos, i + 1);
+        mpModesOutNew.load()[i] = ComputeMode(mReadPos, i + 1);
     }
+    //Atomic pointers switch allows to change position online
+    auto vpModesPtr = mpModesOutCurr.load();
+    mpModesOutCurr.store(mpModesOutNew.load());
+    mpModesOutNew.store(vpModesPtr);
 }
 
 void ModalStiffStringProcessor::RecomputeDampProfile()
@@ -224,14 +269,14 @@ void ModalStiffStringProcessor::InitializeStates()
 {
     // Initialise xVectors
     mStates.resize(2);
-    mpStatesPointers.resize(2);
+    mpStatesPtrs.resize(2);
     // initialise states container with two vectors of 0s
     mStates = std::vector<std::vector<float>>(2, std::vector<float>(mModesNumber * 2, 0));
-    mpStatesPointers = std::vector<float*>(2, nullptr);
+    mpStatesPtrs = std::vector<float*>(2, nullptr);
     // initialise pointers to state vectors
     for (int i = 0; i < 2; ++i)
     {
-        mpStatesPointers[i] = &mStates[i][0];
+        mpStatesPtrs[i] = &mStates[i][0];
     }
 }
 

@@ -23,12 +23,12 @@ public:
     //==========================================================================
     void SetTimeStep(double aTimeStep);
     void SetPlayState(bool aPlayState);
+    void ChangeInputPos(float aNewPos);
+    void ChangeReadPos(float aNewPos);
     void SetGain(float aGain);
     void ResetStringStates();
     void ComputeState();
     float ReadOutput();
-    float* GetModalState();
-    std::vector<float> GetOutputModes();
 
 private:
     //==========================================================================
@@ -54,7 +54,7 @@ private:
     //==========================================================================
     //String states
     std::vector<std::vector<float>> mStates;
-    std::vector<float*> mpStatesPointers;
+    std::vector<float*> mpStatesPtrs;
 
     //==========================================================================
     //Bow params
@@ -67,8 +67,14 @@ private:
     double mTimeStep{ 0.0 };
     int mModesNumber{ 0 };
     std::vector<float> mEigenFreqs;
-    std::vector<float> mModesIn;
-    std::vector<float> mModesOut;
+
+    std::vector<std::vector<float>> mModesIn;
+    std::atomic<float*> mpModesInCurr;
+    std::atomic<float*> mpModesInNew;
+
+    std::vector<std::vector<float>> mModesOut;
+    std::atomic<float*> mpModesOutCurr;
+    std::atomic<float*> mpModesOutNew;
 
     std::vector<int> mT11;
     std::vector<float> mT12;
@@ -103,6 +109,8 @@ private:
 
     void RecomputeModesNumber();
     void RecomputeEigenFreqs();
+    void InitializeInModes();
+    void InitializeOutModes();
     void RecomputeInModes();
     void RecomputeOutModes();
     void RecomputeDampProfile();
