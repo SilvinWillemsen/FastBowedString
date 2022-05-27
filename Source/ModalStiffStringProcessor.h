@@ -26,6 +26,8 @@ public:
     void ChangeInputPos(float aNewPos);
     void ChangeReadPos(float aNewPos);
     void SetGain(float aGain);
+    void SetBowPressure(float aPressure);
+    void SetBowSpeed(float aSpeed);
     void ResetStringStates();
     void ComputeState();
     float ReadOutput();
@@ -58,9 +60,9 @@ private:
 
     //==========================================================================
     //Bow params
-    float mFb{ 0.f };
+    std::atomic<float> mFb;
+    std::atomic<float> mVb;
     float mA{ 0.f };
-    float mVb{ 0.f };
 
     //==========================================================================
     //FDS & Modal params

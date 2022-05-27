@@ -15,9 +15,7 @@ ModalStiffStringProcessor::ModalStiffStringProcessor (double aK) : mTimeStep(aK)
     mK = sqrt(mYoungMod * mInertia / (mLinDensity * mLength * mLength * mLength * mLength));
     mC = sqrt(mTension / mLinDensity);
 
-    mFb = 10.f;
     mA = 100.f;
-    mVb = 0.2f;
 
     RecomputeModesNumber();
     RecomputeEigenFreqs();
@@ -33,6 +31,7 @@ ModalStiffStringProcessor::~ModalStiffStringProcessor()
 {
 }
 
+//==========================================================================
 void ModalStiffStringProcessor::SetTimeStep(double aTimeStep)
 {
     bool vCurrPlayState = mPlayState;
@@ -54,8 +53,8 @@ void ModalStiffStringProcessor::SetPlayState(bool aPlayState)
 
 void ModalStiffStringProcessor::ChangeInputPos(float aNewPos)
 {
-    //Position is in percentage of string length
-    if (aNewPos >= 0 && aNewPos <= 100)
+    //Position is in normalized percentage of string length
+    if (aNewPos >= 0 && aNewPos <= 1)
     {
         mExcitPos = aNewPos * mLength;
     }
@@ -68,8 +67,8 @@ void ModalStiffStringProcessor::ChangeInputPos(float aNewPos)
 
 void ModalStiffStringProcessor::ChangeReadPos(float aNewPos)
 {
-    //Position is in percentage of string length
-    if (aNewPos >= 0 && aNewPos <= 100)
+    //Position is in normalized percentage of string length
+    if (aNewPos >= 0 && aNewPos <= 1)
     {
         mReadPos = aNewPos * mLength;
     }
@@ -85,6 +84,16 @@ void ModalStiffStringProcessor::SetGain(float aGain)
     mGain.store(aGain);
 }
 
+void ModalStiffStringProcessor::SetBowPressure(float aPressure)
+{
+    mFb.store(aPressure);
+}
+
+void ModalStiffStringProcessor::SetBowSpeed(float aSpeed)
+{
+    mVb.store(aSpeed);
+}
+
 void ModalStiffStringProcessor::ComputeState()
 {
     if (mPlayState.load()){
@@ -96,7 +105,7 @@ void ModalStiffStringProcessor::ComputeState()
         }
 
         //Computing bow input
-        float vEta = vZeta1 - mVb;
+        float vEta = vZeta1 - mVb.load();
         float vD = sqrt(2 * mA) * exp(-mA * vEta * vEta + 0.5);
         float vLambda = vD * (1 - 2 * mA * vEta * vEta);
 
@@ -112,11 +121,11 @@ void ModalStiffStringProcessor::ComputeState()
             //so there is no point of computing multiplications by it
             float vB1 = mB11[i] * mpStatesPtrs[0][i] + mB12[i] * mpStatesPtrs[0][i + mModesNumber];
             float vB2 = mB21[i] * mpStatesPtrs[0][i] + mB22[i] * mpStatesPtrs[0][i + mModesNumber] +
-                vZeta2 * 0.5f * mTimeStep * mFb * (vLambda - 2 * vD) +
-                mTimeStep * mFb * vD * mpModesInCurr.load()[i] * mVb;
+                vZeta2 * 0.5f * mTimeStep * mFb.load() * (vLambda - 2 * vD) +
+                mTimeStep * mFb.load() * vD * mpModesInCurr.load()[i] * mVb.load();
 
             //Computing T^-1*a (see overleaf notes)
-            float vZ1 = 0.5f * mTimeStep * mFb * vLambda * mpModesInCurr.load()[i];
+            float vZ1 = 0.5f * mTimeStep * mFb.load() * vLambda * mpModesInCurr.load()[i];
             mInvAv2[i] = (1 / mSchurComp[i]) * vZ1;
             mInvAv1[i] = -mT11[i] * mT12[i] * mInvAv2[i];
 
@@ -158,6 +167,7 @@ float ModalStiffStringProcessor::ReadOutput()
     return (mGain.load() * vOutputValue);
 }
 
+//==========================================================================
 float ModalStiffStringProcessor::ComputeEigenFreq(int aModeNumber)
 {
     auto vN = aModeNumber * juce::MathConstants<float>::pi / mLength;

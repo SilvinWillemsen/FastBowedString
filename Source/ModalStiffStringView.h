@@ -40,10 +40,20 @@ private:
 
     juce::TextButton mPlayButton;
     juce::TextButton mResetButton;
+
     juce::Slider mGainSlider;
+    juce::Label mGainLabel;
 
     juce::Slider mInputPosSlider;
     juce::Slider mReadPosSlider;
+    juce::Label mInputPosLabel;
+    juce::Label mReadPosLabel;
+
+    juce::Slider mBowPressureSlider;
+    juce::Label mBowPressureLabel;
+
+    juce::Slider mBowSpeedSlider;
+    juce::Label mBowSpeedLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ModalStiffStringView)
 };
