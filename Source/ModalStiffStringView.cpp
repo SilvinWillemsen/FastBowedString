@@ -56,6 +56,7 @@ ModalStiffStringView::ModalStiffStringView()
 	mBowSpeedSlider.setValue(0.2, juce::sendNotification);
 	mBowSpeedSlider.setSliderStyle(juce::Slider::SliderStyle::LinearHorizontal);
 	mBowSpeedSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 15);
+	mBowSpeedSlider.setTextValueSuffix("m/s");
 
 	addAndMakeVisible(mBowSpeedLabel);
 	mBowSpeedLabel.setText("Bow Speed", juce::dontSendNotification);
