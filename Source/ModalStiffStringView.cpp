@@ -69,12 +69,53 @@ ModalStiffStringView::~ModalStiffStringView()
 }
 
 //==========================================================================
-void ModalStiffStringView::paint(juce::Graphics&)
+void ModalStiffStringView::paint(juce::Graphics& g)
 {
 
 	/*std::vector<float> vState = mpStiffStringProcessor->GetStringState();
 	DBG(vState.size());*/
+    g.setColour (Colours::cyan);
+    g.strokePath (VisualiseState (g), PathStrokeType(2.0f));
+
 }
+juce::Path ModalStiffStringView::VisualiseState (juce::Graphics& g)
+{
+    double visualScaling = 10;
+    
+    // String-boundaries are in the vertical middle of the component
+    double stringBoundaries = getHeight() / 2.0;
+    
+    // Initialise path
+    Path stringPath;
+    
+    // Start path
+    stringPath.startNewSubPath (0, stringBoundaries);
+    
+    double spacing = getWidth() / static_cast<double>(mVisualizationPoints);
+    double x = spacing;
+    
+    std::vector<float> vSumModes (mVisualizationPoints, 0);
+    std::vector<float> curStringState = mpStiffStringProcessor->GetStringState();
+    for (int l = 0; l < mVisualizationPoints; ++l)
+        for (int m = 0; m < mStringModesNumber; ++m)
+            vSumModes[l] += curStringState[m] * mVisualizationModes[l][m];
+
+    for (int l = 0; l < mVisualizationPoints; l++)
+    {
+        // Needs to be -u, because a positive u would visually go down
+        float newY = -vSumModes[l] * visualScaling * getHeight() + stringBoundaries;
+        
+        // if we get NAN values, make sure that we don't get an exception
+        if (isnan(newY))
+            newY = 0;
+        
+        stringPath.lineTo (x, newY);
+        x += spacing;
+    }
+    
+    return stringPath;
+}
+
 
 void ModalStiffStringView::resized()
 {

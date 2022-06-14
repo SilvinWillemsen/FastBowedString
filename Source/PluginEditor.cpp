@@ -23,9 +23,6 @@ FastBowedStringAudioProcessorEditor::FastBowedStringAudioProcessorEditor (FastBo
     // Add the bowed1DWave to the application and make it visible (a JUCE must-have)
     addAndMakeVisible (bowed1DWaveFirstOrder.get());
     
-    // Refresh the graphics at a rate of 15 Hz
-    startTimerHz (15);
-    
     
     dbgLabel = std::make_unique<Label>();
     dbgLabel->setColour (Label::textColourId, Colours::white);
@@ -40,6 +37,8 @@ FastBowedStringAudioProcessorEditor::FastBowedStringAudioProcessorEditor (FastBo
     addAndMakeVisible(*mpModalStiffString);
     mpModalStiffString->SetProcessor(p.GetModalStringProcessor());
 #endif
+    // Refresh the graphics at a rate of 15 Hz
+    startTimerHz (15);
 
     setSize (800, 600);
 }
@@ -72,6 +71,6 @@ void FastBowedStringAudioProcessorEditor::timerCallback()
 #if TIME_DOMAIN_STRING
     // this function gets called from the JUCE backend at the rate specified by the startTimerHz (see constructor of this class)
     dbgLabel->setText (String (audioProcessor.getDebugString()), dontSendNotification);
-    repaint();
 #endif
+    repaint();
 }

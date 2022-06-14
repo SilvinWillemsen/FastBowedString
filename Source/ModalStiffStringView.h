@@ -60,7 +60,8 @@ private:
 
     int mStringModesNumber{ 0 };
     void SetVisualizationModes();
-
+    juce::Path VisualiseState(juce::Graphics& g);
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ModalStiffStringView)
 };
 
