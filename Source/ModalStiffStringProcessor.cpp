@@ -51,7 +51,17 @@ void ModalStiffStringProcessor::SetPlayState(bool aPlayState)
     mPlayState.store(aPlayState);
 }
 
-void ModalStiffStringProcessor::ChangeInputPos(float aNewPos)
+void ModalStiffStringProcessor::ResetStringStates()
+{
+    if (mPlayState.load())
+    {
+        mPlayState.store(false);
+    }
+    std::fill(mStates[0].begin(), mStates[0].end(), 0);
+    std::fill(mStates[1].begin(), mStates[1].end(), 0);
+}
+
+void ModalStiffStringProcessor::SetInputPos(float aNewPos)
 {
     //Position is in normalized percentage of string length
     if (aNewPos >= 0 && aNewPos <= 1)
@@ -65,7 +75,7 @@ void ModalStiffStringProcessor::ChangeInputPos(float aNewPos)
     RecomputeInModes();
 }
 
-void ModalStiffStringProcessor::ChangeReadPos(float aNewPos)
+void ModalStiffStringProcessor::SetReadPos(float aNewPos)
 {
     //Position is in normalized percentage of string length
     if (aNewPos >= 0 && aNewPos <= 1)
@@ -165,6 +175,29 @@ float ModalStiffStringProcessor::ReadOutput()
         }
     }
     return (mGain.load() * vOutputValue);
+}
+
+int ModalStiffStringProcessor::GetModesNumber()
+{
+    return mModesNumber;
+}
+
+void ModalStiffStringProcessor::GetModesAtLocation(std::vector<float>& aModesArray, float aLocationPerc)
+{
+    aModesArray.resize(mModesNumber, 0.f);
+    auto vPos = aLocationPerc * mLength;
+    for (int i = 0; i < mModesNumber; ++i)
+    {
+        auto vMode = ComputeMode(vPos, i + 1);
+        aModesArray[i] = vMode;
+    }
+}
+
+std::vector<float> ModalStiffStringProcessor::GetStringState()
+{
+    std::vector<float> vState(mModesNumber);
+    std::copy(mStates[0].begin(), mStates[0].begin() + mModesNumber, vState.begin());
+    return vState;
 }
 
 //==========================================================================
@@ -288,16 +321,6 @@ void ModalStiffStringProcessor::InitializeStates()
     {
         mpStatesPtrs[i] = &mStates[i][0];
     }
-}
-
-void ModalStiffStringProcessor::ResetStringStates()
-{
-    if (mPlayState.load())
-    {
-        mPlayState.store(false);
-    }
-    std::fill(mStates[0].begin(), mStates[0].end(), 0);
-    std::fill(mStates[1].begin(), mStates[1].end(), 0);
 }
 
 void ModalStiffStringProcessor::ResetMatrices()

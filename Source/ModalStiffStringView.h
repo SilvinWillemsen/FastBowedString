@@ -55,6 +55,12 @@ private:
     juce::Slider mBowSpeedSlider;
     juce::Label mBowSpeedLabel;
 
+    int mVisualizationPoints{ 0 };
+    std::vector<std::vector<float>> mVisualizationModes;
+
+    int mStringModesNumber{ 0 };
+    void SetVisualizationModes();
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ModalStiffStringView)
 };
 

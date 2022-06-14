@@ -21,16 +21,61 @@ public:
     ~ModalStiffStringProcessor();
 
     //==========================================================================
+    //Set the time sampling step, to be called inside the PrepareToPlay
     void SetTimeStep(double aTimeStep);
+
+    /*
+    Play or pause the sound. If the sound is paused the state is not computed, 
+    but the string is not reset.
+    */
     void SetPlayState(bool aPlayState);
-    void ChangeInputPos(float aNewPos);
-    void ChangeReadPos(float aNewPos);
-    void SetGain(float aGain);
-    void SetBowPressure(float aPressure);
-    void SetBowSpeed(float aSpeed);
+
+    /*
+    Resets the string states, setting each oscillator to zero.
+    If the PlayState is true it is set to false
+    */
     void ResetStringStates();
+
+    //Recomputes the mode for the input location at runtime
+    void SetInputPos(float aNewPos);
+
+    //Recomputes the mode for the output location at runtime
+    void SetReadPos(float aNewPos);
+
+    //Sets the gain to be multiplied to the output value
+    void SetGain(float aGain);
+
+    //Sets the bowing pressure Fb at runtime
+    void SetBowPressure(float aPressure);
+
+    //Sets the bowing speed Vb at runtime
+    void SetBowSpeed(float aSpeed);
+
+    /*
+    Calculates the next string state. 
+    To be called for each sample inside the audio process
+    */
     void ComputeState();
+
+    //Returns the output value at the output location
     float ReadOutput();
+
+    //Return the modes number
+    int GetModesNumber();
+
+    /*
+    Take in input a vector (by reference!), empty it and fill it with the mode
+    shapes at the requested location for each oscillator. Useful for visualizing
+    the string state at a certain location. The location is expressed in portion
+    of string. Therefore, position = aLocationPerc * string length
+    */
+    void GetModesAtLocation(std::vector<float>& aModesArray, float aLocationPerc);
+
+    /*
+    Return the entire string state, i.e. the current state of each oscillator.
+    Useful for visualization purposes.
+    */
+    std::vector<float> GetStringState();
 
 private:
     //==========================================================================

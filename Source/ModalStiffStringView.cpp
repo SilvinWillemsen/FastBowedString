@@ -71,6 +71,9 @@ ModalStiffStringView::~ModalStiffStringView()
 //==========================================================================
 void ModalStiffStringView::paint(juce::Graphics&)
 {
+
+	/*std::vector<float> vState = mpStiffStringProcessor->GetStringState();
+	DBG(vState.size());*/
 }
 
 void ModalStiffStringView::resized()
@@ -131,13 +134,13 @@ void ModalStiffStringView::sliderValueChanged(juce::Slider* apSlider)
 	{
 		//Value is in percentage if string length
 		auto vValue = juce::jlimit<float>(0.f, 1.f, mInputPosSlider.getValue() / 100.0);
-		mpStiffStringProcessor->ChangeInputPos(vValue);
+		mpStiffStringProcessor->SetInputPos(vValue);
 	}
 	else if (apSlider == &mReadPosSlider)
 	{
 		//Value is in percentage if string length
 		auto vValue = juce::jlimit<float>(0.f, 1.f, mReadPosSlider.getValue() / 100.0);
-		mpStiffStringProcessor->ChangeReadPos(vValue);
+		mpStiffStringProcessor->SetReadPos(vValue);
 	}
 	else if (apSlider == &mBowPressureSlider)
 	{
@@ -155,6 +158,19 @@ void ModalStiffStringView::SetProcessor(std::shared_ptr<ModalStiffStringProcesso
 	if (apProcessor)
 	{
 		mpStiffStringProcessor = apProcessor;
+	}
+	mStringModesNumber = mpStiffStringProcessor->GetModesNumber();
+	SetVisualizationModes();
+}
+
+void ModalStiffStringView::SetVisualizationModes()
+{
+	mVisualizationPoints = 51;
+	float vStep = 1.f / (mVisualizationPoints - 1); //position expressed in normalized percentage
+	mVisualizationModes = std::vector<std::vector<float>>(mVisualizationPoints, std::vector<float>(mStringModesNumber, 0));
+	for (int i = 0; i < mVisualizationPoints; ++i)
+	{
+		mpStiffStringProcessor->GetModesAtLocation(mVisualizationModes[i], vStep * i);
 	}
 }
 
