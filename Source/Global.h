@@ -15,6 +15,13 @@
 
 namespace Global
 {
+    namespace Strings
+    {
+        static juce::Identifier CelloA3 = "CelloA3";
+        static juce::Identifier CelloD3 = "CelloD3";
+        static juce::Identifier CelloG2 = "CelloG2";
+        static juce::Identifier CelloC2 = "CelloC2";
+    }
     
     static double cubicInterpolation (double* xVec, int l, double alpha)
     {

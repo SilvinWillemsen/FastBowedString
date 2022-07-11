@@ -17,7 +17,7 @@ class ModalStiffStringProcessor
 {
 public:
     //==========================================================================
-    ModalStiffStringProcessor(double aK);
+    ModalStiffStringProcessor(double aK, juce::Identifier aString);
     ~ModalStiffStringProcessor();
 
     //==========================================================================
@@ -79,6 +79,8 @@ public:
 
 private:
     //==========================================================================
+    juce::Identifier mString;
+
     //PlayState
     std::atomic<bool> mPlayState{ false };
     std::atomic<float> mGain{ 0.f };

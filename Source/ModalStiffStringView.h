@@ -36,6 +36,7 @@ public:
 
 private:
     std::shared_ptr<ModalStiffStringProcessor> mpStiffStringProcessor;
+
     bool mPlayState{ false };
 
     juce::TextButton mPlayButton;

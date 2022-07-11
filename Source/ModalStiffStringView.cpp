@@ -206,7 +206,7 @@ void ModalStiffStringView::SetProcessor(std::shared_ptr<ModalStiffStringProcesso
 
 void ModalStiffStringView::SetVisualizationModes()
 {
-	mVisualizationPoints = 51;
+	mVisualizationPoints = 101;
 	float vStep = 1.f / (mVisualizationPoints - 1); //position expressed in normalized percentage
 	mVisualizationModes = std::vector<std::vector<float>>(mVisualizationPoints, std::vector<float>(mStringModesNumber, 0));
 	for (int i = 0; i < mVisualizationPoints; ++i)

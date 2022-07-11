@@ -1,16 +1,45 @@
 #include "ModalStiffStringProcessor.h"
 
-ModalStiffStringProcessor::ModalStiffStringProcessor (double aK) : mTimeStep(aK)
+ModalStiffStringProcessor::ModalStiffStringProcessor (double aK, juce::Identifier aString) : mTimeStep(aK)
 {
     auto vPi = juce::MathConstants<float>::pi;
 
+    mString = aString;
+
     mLength = 0.69f;
-    mRadius = (float)6.05e-04;
-    mDensity = (float)5.3570e3;
-    mTension = 112.67f;
+
+    if (mString == Global::Strings::CelloA3)
+    {
+        mRadius = (float)3.75e-04;
+        mDensity = (float)3.7575e3;
+        mTension = 153.f;
+        mYoungMod = (float)25e9;
+    }
+    else if (mString == Global::Strings::CelloD3)
+    {
+        mRadius = (float)4.4e-04;
+        mDensity = (float)4.1104e3;
+        mTension = 102.6f;
+        mYoungMod = (float)25e9;
+    }
+    else if (mString == Global::Strings::CelloG2)
+    {
+        mRadius = (float)6.05e-04;
+        mDensity = (float)5.3570e3;
+        mTension = 112.67f;
+        mYoungMod = (float)8.6e9;
+    }
+    else if (mString == Global::Strings::CelloC2)
+    {
+        mRadius = (float)7.2e-04;
+        mDensity = (float)1.3017e4;
+        mTension = 172.74f;
+        mYoungMod = (float)22.4e9;
+    }
+    else jassertfalse;
+
     mArea = vPi * mRadius * mRadius;
     mLinDensity = mDensity * mArea;
-    mYoungMod = (float)8.6e9;
     mInertia = (vPi * mRadius * mRadius * mRadius * mRadius) / 4;
     mK = sqrt(mYoungMod * mInertia / (mLinDensity * mLength * mLength * mLength * mLength));
     mC = sqrt(mTension / mLinDensity);
