@@ -62,6 +62,12 @@ ModalStiffStringView::ModalStiffStringView()
 	mBowSpeedLabel.setText("Bow Speed", juce::dontSendNotification);
 	mBowSpeedLabel.attachToComponent(&mBowSpeedSlider, false);
 	mBowSpeedLabel.setJustificationType(juce::Justification::centred);
+
+	//addAndMakeVisible(mStringChoiceBox);
+	mStringChoiceBox.addItem(Global::Strings::CelloA3.toString(), 1);
+	mStringChoiceBox.addItem(Global::Strings::CelloD3.toString(), 2);
+	mStringChoiceBox.addItem(Global::Strings::CelloG2.toString(), 3);
+	mStringChoiceBox.addItem(Global::Strings::CelloC2.toString(), 4);
 }
 
 ModalStiffStringView::~ModalStiffStringView()
@@ -83,7 +89,7 @@ juce::Path ModalStiffStringView::VisualiseState (juce::Graphics& g)
     double visualScaling = 10;
     
     // String-boundaries are in the vertical middle of the component
-    double stringBoundaries = getHeight() / 2.0;
+    double stringBoundaries = (getHeight() / 2.0) - (getHeight() / 4.0);
     
     // Initialise path
     Path stringPath;
@@ -139,6 +145,8 @@ void ModalStiffStringView::resized()
 	mBowSpeedSlider.setBounds(getWidth() / 2 + getWidth() / 8 - vButtonsWidth / 2, getHeight() - getHeight() / 4 - vSpacing - vButtonHeigth, vButtonsWidth, vButtonHeigth);
 
 	mGainSlider.setBounds(getWidth() / 2 - vGainSliderDims / 2, getHeight() - (getHeight() / 5) * 2, vGainSliderDims, vGainSliderDims);
+
+	mStringChoiceBox.setBounds(getWidth() / 2 - vButtonsWidth / 2, getHeight() - getHeight() / 4 + vGainSliderDims / 2 - vButtonHeigth, vButtonsWidth, vButtonHeigth);
 
 	addAndMakeVisible(mPlayButton);
 	addAndMakeVisible(mResetButton);

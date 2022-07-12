@@ -56,6 +56,8 @@ private:
     juce::Slider mBowSpeedSlider;
     juce::Label mBowSpeedLabel;
 
+    juce::ComboBox mStringChoiceBox;
+
     int mVisualizationPoints{ 0 };
     std::vector<std::vector<float>> mVisualizationModes;
 
