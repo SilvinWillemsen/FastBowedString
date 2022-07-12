@@ -100,7 +100,7 @@ void FastBowedStringAudioProcessor::prepareToPlay (double sampleRate, int sample
 #else
     if (!mpModalStiffStringProcessor)
     {
-        mpModalStiffStringProcessor = std::make_shared<ModalStiffStringProcessor>((1.0 / sampleRate), Global::Strings::CelloC2);
+        mpModalStiffStringProcessor = std::make_shared<ModalStiffStringProcessor>(sampleRate, Global::Strings::CelloG2);
     }
     else if (mSampleRate != sampleRate)
     {

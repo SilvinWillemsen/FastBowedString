@@ -17,7 +17,7 @@ class ModalStiffStringProcessor
 {
 public:
     //==========================================================================
-    ModalStiffStringProcessor(double aK, juce::Identifier aString);
+    ModalStiffStringProcessor(double aSampleRate, juce::Identifier aString);
     ~ModalStiffStringProcessor();
 
     //==========================================================================
@@ -113,6 +113,7 @@ private:
 
     //==========================================================================
     //FDS & Modal params
+    int mOversamplingFactor{ 0 };
     double mTimeStep{ 0.0 };
     int mModesNumber{ 0 };
     std::vector<float> mEigenFreqs;

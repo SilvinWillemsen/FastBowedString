@@ -1,8 +1,11 @@
 #include "ModalStiffStringProcessor.h"
 
-ModalStiffStringProcessor::ModalStiffStringProcessor (double aK, juce::Identifier aString) : mTimeStep(aK)
+ModalStiffStringProcessor::ModalStiffStringProcessor (double aSampleRate, juce::Identifier aString)
 {
     auto vPi = juce::MathConstants<float>::pi;
+    mOversamplingFactor = 1;
+
+    mTimeStep = 1.0 / (aSampleRate * mOversamplingFactor);
 
     mString = aString;
 
@@ -135,61 +138,65 @@ void ModalStiffStringProcessor::SetBowSpeed(float aSpeed)
 
 void ModalStiffStringProcessor::ComputeState()
 {
-    if (mPlayState.load()){
-        //Computing input projection
-        float vZeta1 = 0.f;
-        for (int i = 0; i < mModesNumber; ++i)
+    if (mPlayState.load())
+    {
+        for (int vOS = 0; vOS < mOversamplingFactor; ++vOS)
         {
-            vZeta1 += mpModesInCurr.load()[i] * mpStatesPtrs[0][i + mModesNumber];
+            //Computing input projection
+            float vZeta1 = 0.f;
+            for (int i = 0; i < mModesNumber; ++i)
+            {
+                vZeta1 += mpModesInCurr.load()[i] * mpStatesPtrs[0][i + mModesNumber];
+            }
+
+            //Computing bow input
+            float vEta = vZeta1 - mVb.load();
+            float vD = sqrt(2 * mA) * exp(-mA * vEta * vEta + 0.5);
+            float vLambda = vD * (1 - 2 * mA * vEta * vEta);
+
+            float vVt1 = 0.f;
+            float vVt2 = 0.f;
+
+            //Computing known terms
+            for (int i = 0; i < mModesNumber; ++i)
+            {
+                float vZeta2 = mpModesInCurr.load()[i] * vZeta1;
+
+                //Notice that the first half of zeta in the matlab code is made of zeroes, 
+                //so there is no point of computing multiplications by it
+                float vB1 = mB11[i] * mpStatesPtrs[0][i] + mB12[i] * mpStatesPtrs[0][i + mModesNumber];
+                float vB2 = mB21[i] * mpStatesPtrs[0][i] + mB22[i] * mpStatesPtrs[0][i + mModesNumber] +
+                    vZeta2 * 0.5f * mTimeStep * mFb.load() * (vLambda - 2 * vD) +
+                    mTimeStep * mFb.load() * vD * mpModesInCurr.load()[i] * mVb.load();
+
+                //Computing T^-1*a (see overleaf notes)
+                float vZ1 = 0.5f * mTimeStep * mFb.load() * vLambda * mpModesInCurr.load()[i];
+                mInvAv2[i] = (1 / mSchurComp[i]) * vZ1;
+                mInvAv1[i] = -mT11[i] * mT12[i] * mInvAv2[i];
+
+                //Computing T^-1*[j1;j1] (see overleaf notes)
+                float vY2 = mT11[i] * vB1;
+                float vZ2 = vB2 - mT21[i] * vY2;
+                mInvAb2[i] = (1 / mSchurComp[i]) * vZ2;
+                mInvAb1[i] = vY2 - mT11[i] * mT12[i] * mInvAb2[i];
+
+                vVt1 += mpModesInCurr.load()[i] * mInvAv2[i];
+                vVt2 += mpModesInCurr.load()[i] * mInvAb2[i];
+            }
+
+            float vCoeff = 1 / (1 + vVt1);
+
+            for (int i = 0; i < mModesNumber; ++i)
+            {
+                mpStatesPtrs[1][i] = mInvAb1[i] - vCoeff * mInvAv1[i] * vVt2;
+                mpStatesPtrs[1][i + mModesNumber] = mInvAb2[i] - vCoeff * mInvAv2[i] * vVt2;
+            }
+
+            //Pointers switch
+            auto vpStatePointer = mpStatesPtrs[0];
+            mpStatesPtrs[0] = mpStatesPtrs[1];
+            mpStatesPtrs[1] = vpStatePointer;
         }
-
-        //Computing bow input
-        float vEta = vZeta1 - mVb.load();
-        float vD = sqrt(2 * mA) * exp(-mA * vEta * vEta + 0.5);
-        float vLambda = vD * (1 - 2 * mA * vEta * vEta);
-
-        float vVt1 = 0.f;
-        float vVt2 = 0.f;
-
-        //Computing known terms
-        for (int i = 0; i < mModesNumber; ++i)
-        {
-            float vZeta2 = mpModesInCurr.load()[i] * vZeta1;
-
-            //Notice that the first half of zeta in the matlab code is made of zeroes, 
-            //so there is no point of computing multiplications by it
-            float vB1 = mB11[i] * mpStatesPtrs[0][i] + mB12[i] * mpStatesPtrs[0][i + mModesNumber];
-            float vB2 = mB21[i] * mpStatesPtrs[0][i] + mB22[i] * mpStatesPtrs[0][i + mModesNumber] +
-                vZeta2 * 0.5f * mTimeStep * mFb.load() * (vLambda - 2 * vD) +
-                mTimeStep * mFb.load() * vD * mpModesInCurr.load()[i] * mVb.load();
-
-            //Computing T^-1*a (see overleaf notes)
-            float vZ1 = 0.5f * mTimeStep * mFb.load() * vLambda * mpModesInCurr.load()[i];
-            mInvAv2[i] = (1 / mSchurComp[i]) * vZ1;
-            mInvAv1[i] = -mT11[i] * mT12[i] * mInvAv2[i];
-
-            //Computing T^-1*[j1;j1] (see overleaf notes)
-            float vY2 = mT11[i] * vB1;
-            float vZ2 = vB2 - mT21[i] * vY2;
-            mInvAb2[i] = (1 / mSchurComp[i]) * vZ2;
-            mInvAb1[i] = vY2 - mT11[i] * mT12[i] * mInvAb2[i];
-
-            vVt1 += mpModesInCurr.load()[i] * mInvAv2[i];
-            vVt2 += mpModesInCurr.load()[i] * mInvAb2[i];
-        }
-
-        float vCoeff = 1 / (1 + vVt1);
-
-        for (int i = 0; i < mModesNumber; ++i)
-        {
-            mpStatesPtrs[1][i] = mInvAb1[i] - vCoeff * mInvAv1[i] * vVt2;
-            mpStatesPtrs[1][i + mModesNumber] = mInvAb2[i] - vCoeff * mInvAv2[i] * vVt2;
-        }
-
-        //Pointers switch
-        auto vpStatePointer = mpStatesPtrs[0];
-        mpStatesPtrs[0] = mpStatesPtrs[1];
-        mpStatesPtrs[1] = vpStatePointer;
     }
 }
 

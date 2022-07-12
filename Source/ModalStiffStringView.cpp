@@ -138,7 +138,7 @@ void ModalStiffStringView::resized()
 	mBowPressureSlider.setBounds(getWidth() / 2 - getWidth() / 8 - vButtonsWidth / 2, getHeight() - getHeight() / 4 - vSpacing - vButtonHeigth, vButtonsWidth, vButtonHeigth);
 	mBowSpeedSlider.setBounds(getWidth() / 2 + getWidth() / 8 - vButtonsWidth / 2, getHeight() - getHeight() / 4 - vSpacing - vButtonHeigth, vButtonsWidth, vButtonHeigth);
 
-	mGainSlider.setBounds(getWidth() / 2 - vGainSliderDims / 2, getHeight() - getHeight() / 4, vGainSliderDims, vGainSliderDims);
+	mGainSlider.setBounds(getWidth() / 2 - vGainSliderDims / 2, getHeight() - (getHeight() / 5) * 2, vGainSliderDims, vGainSliderDims);
 
 	addAndMakeVisible(mPlayButton);
 	addAndMakeVisible(mResetButton);
