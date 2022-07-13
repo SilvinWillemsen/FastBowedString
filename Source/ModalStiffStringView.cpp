@@ -10,6 +10,7 @@ ModalStiffStringView::ModalStiffStringView()
 	mReadPosSlider.addListener(this);
 	mBowPressureSlider.addListener(this);
 	mBowSpeedSlider.addListener(this);
+	mStringChoiceBox.addListener(this);
 
 	mGainSlider.setRange(0.0, 5000.0, 0.1);
 	mGainSlider.setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
@@ -63,11 +64,12 @@ ModalStiffStringView::ModalStiffStringView()
 	mBowSpeedLabel.attachToComponent(&mBowSpeedSlider, false);
 	mBowSpeedLabel.setJustificationType(juce::Justification::centred);
 
-	//addAndMakeVisible(mStringChoiceBox);
-	mStringChoiceBox.addItem(Global::Strings::CelloA3.toString(), 1);
-	mStringChoiceBox.addItem(Global::Strings::CelloD3.toString(), 2);
-	mStringChoiceBox.addItem(Global::Strings::CelloG2.toString(), 3);
-	mStringChoiceBox.addItem(Global::Strings::CelloC2.toString(), 4);
+	addAndMakeVisible(mStringChoiceBox);
+	mStringChoiceBox.addItem(Global::Strings::kpCelloA3->mName, 1);
+	mStringChoiceBox.addItem(Global::Strings::kpCelloD3->mName, 2);
+	mStringChoiceBox.addItem(Global::Strings::kpCelloG2->mName, 3);
+	mStringChoiceBox.addItem(Global::Strings::kpCelloC2->mName, 4);
+	mStringChoiceBox.setSelectedId(3, juce::sendNotification);
 }
 
 ModalStiffStringView::~ModalStiffStringView()
@@ -198,6 +200,35 @@ void ModalStiffStringView::sliderValueChanged(juce::Slider* apSlider)
 	else if (apSlider == &mBowSpeedSlider)
 	{
 		mpStiffStringProcessor->SetBowSpeed(static_cast<float>(apSlider->getValue()));
+	}
+}
+
+void ModalStiffStringView::comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged)
+{
+	if (comboBoxThatHasChanged == &mStringChoiceBox)
+	{ 
+		if (mPlayButton.getToggleState())
+		{
+			mPlayButton.setToggleState(false, juce::sendNotification);
+		}
+		if (mStringChoiceBox.getSelectedId() == Global::Strings::kpCelloA3->mId)
+		{
+			mpStiffStringProcessor->SetString(Global::Strings::kpCelloA3);
+		}
+		else if (mStringChoiceBox.getSelectedId() == Global::Strings::kpCelloD3->mId)
+		{
+			mpStiffStringProcessor->SetString(Global::Strings::kpCelloD3);
+		}
+		else if (mStringChoiceBox.getSelectedId() == Global::Strings::kpCelloG2->mId)
+		{
+			mpStiffStringProcessor->SetString(Global::Strings::kpCelloG2);
+		}
+		else if (mStringChoiceBox.getSelectedId() == Global::Strings::kpCelloC2->mId)
+		{
+			mpStiffStringProcessor->SetString(Global::Strings::kpCelloC2);
+		}
+		mStringModesNumber = mpStiffStringProcessor->GetModesNumber();
+		SetVisualizationModes();
 	}
 }
 

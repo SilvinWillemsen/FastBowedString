@@ -17,6 +17,7 @@ class ModalStiffStringView
     : public juce::Component
     , public juce::Button::Listener
     , public juce::Slider::Listener
+    , public juce::ComboBox::Listener
 {
 public:
     ModalStiffStringView();
@@ -30,6 +31,7 @@ public:
     //==========================================================================
     void buttonClicked(juce::Button* apButton) override;
     void sliderValueChanged(juce::Slider* apSlider) override;
+    void comboBoxChanged(juce::ComboBox* comboBoxThatHasChanged) override;
 
     //==========================================================================
     void SetProcessor(std::shared_ptr<ModalStiffStringProcessor> apProcessor);

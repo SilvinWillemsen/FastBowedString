@@ -17,7 +17,7 @@ class ModalStiffStringProcessor
 {
 public:
     //==========================================================================
-    ModalStiffStringProcessor(double aSampleRate, juce::Identifier aString);
+    ModalStiffStringProcessor(double aSampleRate, Global::Strings::String* apString);
     ~ModalStiffStringProcessor();
 
     //==========================================================================
@@ -52,6 +52,12 @@ public:
     void SetBowSpeed(float aSpeed);
 
     /*
+    Change the string being played.This stops the 
+    playback and recomputes all the string matrices
+    */
+    void SetString(Global::Strings::String* apString);
+
+    /*
     Calculates the next string state. 
     To be called for each sample inside the audio process
     */
@@ -79,7 +85,7 @@ public:
 
 private:
     //==========================================================================
-    juce::Identifier mString;
+    Global::Strings::String* mpString;
 
     //PlayState
     std::atomic<bool> mPlayState{ false };

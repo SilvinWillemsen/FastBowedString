@@ -1,45 +1,17 @@
 #include "ModalStiffStringProcessor.h"
 
-ModalStiffStringProcessor::ModalStiffStringProcessor (double aSampleRate, juce::Identifier aString)
+ModalStiffStringProcessor::ModalStiffStringProcessor (double aSampleRate, Global::Strings::String* apString)
 {
     auto vPi = juce::MathConstants<float>::pi;
     mOversamplingFactor = 1;
 
     mTimeStep = 1.0 / (aSampleRate * mOversamplingFactor);
 
-    mString = aString;
-
-    mLength = 0.69f;
-
-    if (mString == Global::Strings::CelloA3)
-    {
-        mRadius = (float)3.75e-04;
-        mDensity = (float)3.7575e3;
-        mTension = 153.f;
-        mYoungMod = (float)25e9;
-    }
-    else if (mString == Global::Strings::CelloD3)
-    {
-        mRadius = (float)4.4e-04;
-        mDensity = (float)4.1104e3;
-        mTension = 102.6f;
-        mYoungMod = (float)25e9;
-    }
-    else if (mString == Global::Strings::CelloG2)
-    {
-        mRadius = (float)6.05e-04;
-        mDensity = (float)5.3570e3;
-        mTension = 112.67f;
-        mYoungMod = (float)8.6e9;
-    }
-    else if (mString == Global::Strings::CelloC2)
-    {
-        mRadius = (float)7.2e-04;
-        mDensity = (float)1.3017e4;
-        mTension = 172.74f;
-        mYoungMod = (float)22.4e9;
-    }
-    else jassertfalse;
+    mpString = apString;
+    mRadius = mpString->mRadius;
+    mDensity = mpString->mDensity;
+    mTension = mpString->mTension;
+    mLength = mpString->mLength;
 
     mArea = vPi * mRadius * mRadius;
     mLinDensity = mDensity * mArea;
@@ -134,6 +106,32 @@ void ModalStiffStringProcessor::SetBowPressure(float aPressure)
 void ModalStiffStringProcessor::SetBowSpeed(float aSpeed)
 {
     mVb.store(aSpeed);
+}
+
+void ModalStiffStringProcessor::SetString(Global::Strings::String* apString)
+{
+    auto vPi = juce::MathConstants<float>::pi;
+
+    mpString = apString;
+    mRadius = mpString->mRadius;
+    mDensity = mpString->mDensity;
+    mTension = mpString->mTension;
+    mLength = mpString->mLength;
+
+    mArea = vPi * mRadius * mRadius;
+    mLinDensity = mDensity * mArea;
+    mInertia = (vPi * mRadius * mRadius * mRadius * mRadius) / 4;
+    mK = sqrt(mYoungMod * mInertia / (mLinDensity * mLength * mLength * mLength * mLength));
+    mC = sqrt(mTension / mLinDensity);
+
+    ResetStringStates();
+    RecomputeModesNumber();
+    RecomputeEigenFreqs();
+    InitializeInModes();
+    InitializeOutModes();
+    RecomputeDampProfile();
+    InitializeStates();
+    ResetMatrices();
 }
 
 void ModalStiffStringProcessor::ComputeState()
