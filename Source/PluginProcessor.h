@@ -12,6 +12,7 @@
 #include "Global.h"
 #include "Bowed1DWaveFirstOrder.h"
 #include "ModalStiffStringProcessor.h"
+#include "PA_LowPass2.h"
 
 //==============================================================================
 /**
@@ -70,6 +71,8 @@ private:
     std::shared_ptr<Bowed1DWaveFirstOrder> bowed1DWaveFirstOrder;
 
     std::shared_ptr<ModalStiffStringProcessor> mpModalStiffStringProcessor;
+
+    std::unique_ptr<PA_LowPass2> mpLPFilter;
     
     // Current sample (debugging purposes only)
     unsigned long curSample = 0;

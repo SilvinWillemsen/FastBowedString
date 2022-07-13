@@ -111,10 +111,19 @@ void FastBowedStringAudioProcessor::prepareToPlay (double sampleRate, int sample
     // save samplerate and block size
     mSampleRate = sampleRate;
     mBlockSize = samplesPerBlock;
+
+    if (!mpLPFilter)
+    {
+        mpLPFilter.reset(new PA_LowPass2());
+    }
 }
 
 void FastBowedStringAudioProcessor::releaseResources()
 {
+    delete(Global::Strings::kpCelloA3);
+    delete(Global::Strings::kpCelloD3);
+    delete(Global::Strings::kpCelloG2);
+    delete(Global::Strings::kpCelloC2);
     // When playback stops, you can use this as an opportunity to free up any
     // spare memory, etc.
 }
@@ -228,6 +237,7 @@ void FastBowedStringAudioProcessor::processBlock (juce::AudioBuffer<float>& buff
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
         mpModalStiffStringProcessor->ComputeState();
+        //vOutput = mpLPFilter->update(mpModalStiffStringProcessor->ReadOutput());
         vOutput = mpModalStiffStringProcessor->ReadOutput();
         //DBG(Global::limitOutput(vOutput));
         //jassert(vOutput <= 1 && vOutput >= -1);

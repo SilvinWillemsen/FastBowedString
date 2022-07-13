@@ -6,6 +6,7 @@
               pluginRTASCategory="0" pluginAAXCategory="0">
   <MAINGROUP id="CrcufO" name="FastBowedString">
     <GROUP id="{086D6846-2393-59F9-19CE-E37554B44FCE}" name="Source">
+      <FILE id="J1I7ZH" name="PA_LowPass2.h" compile="0" resource="0" file="Source/PA_LowPass2.h"/>
       <FILE id="nSoXW3" name="ModalStiffStringProcessor.cpp" compile="1"
             resource="0" file="Source/ModalStiffStringProcessor.cpp"/>
       <FILE id="UBOfg4" name="ModalStiffStringProcessor.h" compile="0" resource="0"
